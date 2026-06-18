@@ -16,7 +16,7 @@ const addCajasUsers = async () => {
     console.log('Conectado con éxito.');
 
     // 1. Crear Caja 1
-    const emailCaja1 = 'caja1@aurastock.com';
+    const emailCaja1 = 'caja1@cedecco.com';
     const existingCaja1 = await User.findOne({ email: emailCaja1 });
     if (!existingCaja1) {
       const userCaja1 = new User({
@@ -26,13 +26,13 @@ const addCajasUsers = async () => {
         role: 'vendedor'
       });
       await userCaja1.save();
-      console.log('✔ Caja 1 creada con éxito (Email: caja1@aurastock.com | Password: caja1)');
+      console.log('✔ Caja 1 creada con éxito (Email: caja1@cedecco.com | Password: caja1)');
     } else {
       console.log('ℹ Caja 1 ya existía en la base de datos.');
     }
 
     // 2. Crear Caja 2
-    const emailCaja2 = 'caja2@aurastock.com';
+    const emailCaja2 = 'caja2@cedecco.com';
     const existingCaja2 = await User.findOne({ email: emailCaja2 });
     if (!existingCaja2) {
       const userCaja2 = new User({
@@ -42,7 +42,7 @@ const addCajasUsers = async () => {
         role: 'vendedor'
       });
       await userCaja2.save();
-      console.log('✔ Caja 2 creada con éxito (Email: caja2@aurastock.com | Password: caja2)');
+      console.log('✔ Caja 2 creada con éxito (Email: caja2@cedecco.com | Password: caja2)');
     } else {
       console.log('ℹ Caja 2 ya existía en la base de datos.');
     }
