@@ -31,86 +31,86 @@ const seedData = async () => {
     const mockProducts = [
       {
         code: '7791234500012',
-        name: 'Ibuprofeno 600mg (20 comp.)',
-        description: 'Analgésico y antiinflamatorio para alivio rápido de dolores intensos.',
-        category: 'Farmacia',
-        purchasePrice: 200,
-        salePrice: 550,
-        stock: 45,
-        minStock: 10,
-        expirationDate: inSixMonths,
+        name: 'Mouse Óptico Inalámbrico Logitech M170',
+        description: 'Mouse inalámbrico compacto de 1000 DPI con conexión plug-and-play estable de 2.4 GHz.',
+        category: 'Periféricos',
+        purchasePrice: 4500,
+        salePrice: 9500,
+        stock: 35,
+        minStock: 8,
+        expirationDate: null,
         active: true
       },
       {
         code: '7791234500029',
-        name: 'Paracetamol 500mg (10 comp.)',
-        description: 'Antifebril y analgésico de amplio espectro.',
-        category: 'Farmacia',
-        purchasePrice: 120,
-        salePrice: 320,
-        stock: 3,
-        minStock: 8, // Gatilla alerta de stock bajo
-        expirationDate: inSixMonths,
+        name: 'Teclado Mecánico Redragon Kumara K552 RGB',
+        description: 'Teclado mecánico TKL compacto con switches Outemu Blue e iluminación RGB.',
+        category: 'Periféricos',
+        purchasePrice: 18000,
+        salePrice: 32000,
+        stock: 4,
+        minStock: 5, // Gatilla alerta de stock bajo
+        expirationDate: null,
         active: true
       },
       {
         code: '7790890200055',
-        name: 'Coca-Cola Original 500ml',
-        description: 'Bebida gaseosa refrescante sabor original.',
-        category: 'Bebidas',
-        purchasePrice: 450,
-        salePrice: 1100,
-        stock: 90,
+        name: 'Pendrive Kingston DataTraveler Exodia 64GB USB 3.2',
+        description: 'Memoria flash USB 3.2 Gen 1 de alta velocidad con capuchón protector y llavero de color.',
+        category: 'Almacenamiento',
+        purchasePrice: 3200,
+        salePrice: 6800,
+        stock: 80,
         minStock: 15,
-        expirationDate: inThreeMonths,
+        expirationDate: null,
         active: true
       },
       {
         code: '7790890200086',
-        name: 'Agua Mineral Sin Gas 500ml',
-        description: 'Agua mineral de manantial pura y natural.',
-        category: 'Bebidas',
-        purchasePrice: 250,
-        salePrice: 650,
-        stock: 60,
+        name: 'Cable HDMI 2.0 Full HD/4K 1.8 metros',
+        description: 'Cable HDMI de alta velocidad con conectores dorados para transmisión de audio y video digital sin pérdida.',
+        category: 'Conectividad',
+        purchasePrice: 1500,
+        salePrice: 3900,
+        stock: 45,
         minStock: 10,
-        expirationDate: inSixMonths,
+        expirationDate: null,
         active: true
       },
       {
         code: '7795432100033',
-        name: 'Yogur de Frutilla con Cereales 150g',
-        description: 'Yogur endulzado con trozos de fruta y topping de copos de maíz crujientes.',
-        category: 'Lácteos',
-        purchasePrice: 300,
-        salePrice: 790,
+        name: 'Cartucho de Tinta HP 667XL Negro Original',
+        description: 'Cartucho de tinta de alto rendimiento para impresoras HP Advantage. Rinde aprox. 480 páginas.',
+        category: 'Impresión',
+        purchasePrice: 12000,
+        salePrice: 24500,
         stock: 6,
         minStock: 8, // Alerta stock bajo
-        expirationDate: inTwoDays, // Gatilla alerta de vencimiento inminente (2 días)
-        active: true
-      },
-      {
-        code: '7795432100071',
-        name: 'Alfajor Triple de Chocolate Suizo',
-        description: 'Alfajor triple relleno de abundante dulce de leche bañado en chocolate semiamargo.',
-        category: 'Kiosco',
-        purchasePrice: 150,
-        salePrice: 450,
-        stock: 0, // Sin stock total
-        minStock: 10, // Alerta
         expirationDate: inThreeMonths,
         active: true
       },
       {
+        code: '7795432100071',
+        name: 'Resma de Papel A4 Boreal 75g (500 hojas)',
+        description: 'Papel obra blanco alcalino de alta calidad, óptimo para impresiones láser y chorro de tinta.',
+        category: 'Papelería',
+        purchasePrice: 3500,
+        salePrice: 6500,
+        stock: 120,
+        minStock: 20,
+        expirationDate: null,
+        active: true
+      },
+      {
         code: '7798765400041',
-        name: 'Barra de Chocolate Blanco con Almendras',
-        description: 'Chocolate premium importado con almendras seleccionadas crujientes.',
-        category: 'Kiosco',
-        purchasePrice: 600,
-        salePrice: 1500,
+        name: 'Disco Sólido SSD Interno Kingston A400 480GB SATA3',
+        description: 'Unidad de estado sólido de 2.5 pulgadas con velocidades de lectura de hasta 500MB/s para acelerar tu sistema.',
+        category: 'Almacenamiento',
+        purchasePrice: 22000,
+        salePrice: 38000,
         stock: 12,
-        minStock: 4,
-        expirationDate: yesterday, // Gatilla alerta de producto VENCIDO (ayer)
+        minStock: 3,
+        expirationDate: null,
         active: true
       }
     ];
@@ -119,31 +119,31 @@ const seedData = async () => {
     console.log('¡Productos sembrados con éxito en la base de datos!');
 
     // Crear un usuario vendedor de prueba para no requerir que registren todo a mano
-    const existingSeller = await User.findOne({ email: 'vendedor@aurastock.com' });
+    const existingSeller = await User.findOne({ email: 'vendedor@cedecco.com' });
     if (!existingSeller) {
       const sellerUser = new User({
-        name: 'Cajero de Prueba',
-        email: 'vendedor@aurastock.com',
+        name: 'Vendedor Cedecco',
+        email: 'vendedor@cedecco.com',
         password: 'vendedor123', // Será encriptada en pre-save
         role: 'vendedor'
       });
       await sellerUser.save();
       console.log('¡Usuario vendedor creado con éxito!');
-      console.log('Email: vendedor@aurastock.com | Password: vendedor123');
+      console.log('Email: vendedor@cedecco.com | Password: vendedor123');
     }
 
     // Crear un usuario administrador de prueba predeterminado
-    const existingAdmin = await User.findOne({ email: 'admin@aurastock.com' });
+    const existingAdmin = await User.findOne({ email: 'admin@cedecco.com' });
     if (!existingAdmin) {
       const adminUser = new User({
-        name: 'Administrador',
-        email: 'admin@aurastock.com',
+        name: 'Administrador Cedecco',
+        email: 'admin@cedecco.com',
         password: 'admin123', // Será encriptada en pre-save
         role: 'admin'
       });
       await adminUser.save();
       console.log('¡Usuario administrador creado con éxito!');
-      console.log('Email: admin@aurastock.com | Password: admin123');
+      console.log('Email: admin@cedecco.com | Password: admin123');
     }
 
     await mongoose.connection.close();
