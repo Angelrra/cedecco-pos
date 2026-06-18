@@ -122,9 +122,9 @@ router.get('/me', auth, async (req, res) => {
 router.get('/users', auth, adminOnly, async (req, res) => {
   try {
     const query = {};
-    // Ocultar el usuario creador angel.admin@store.com de la lista si no es él quien consulta
-    if (req.user.email !== 'angel.admin@store.com') {
-      query.email = { $ne: 'angel.admin@store.com' };
+    // Ocultar el usuario creador admin@cedecco.com de la lista si no es él quien consulta
+    if (req.user.email !== 'admin@cedecco.com') {
+      query.email = { $ne: 'admin@cedecco.com' };
     }
     const users = await User.find(query).select('-password').sort({ createdAt: -1 });
     res.json(users);
@@ -149,8 +149,8 @@ router.put('/users/:id', auth, adminOnly, async (req, res) => {
       return res.status(400).json({ message: 'No puedes desactivarte o quitarte el rol de administrador a ti mismo' });
     }
 
-    // No permitir que otros usuarios editen al Creador del Sistema (angel.admin@store.com)
-    if (user.email === 'angel.admin@store.com' && req.user.email !== 'angel.admin@store.com') {
+    // No permitir que otros usuarios editen al Creador del Sistema (admin@cedecco.com)
+    if (user.email === 'admin@cedecco.com' && req.user.email !== 'admin@cedecco.com') {
       return res.status(403).json({ message: 'Acceso denegado: Solo el Creador puede modificar su propia cuenta' });
     }
 

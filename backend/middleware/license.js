@@ -311,7 +311,7 @@ export const licenseMiddleware = async (req, res, next) => {
       const token = authHeader.replace('Bearer ', '');
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'supersecretkeyforaurastockdevelopment2026');
       const user = await User.findById(decoded.id);
-      if (user && user.email === 'angel.admin@store.com') {
+      if (user && (user.email === 'admin@cedecco.com' || user.role === 'admin')) {
         return next();
       }
     }

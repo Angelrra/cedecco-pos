@@ -28,7 +28,7 @@ const LICENSE_FILE = path.join(process.cwd(), '.licencia');
 
 // Middleware para permitir el acceso únicamente al Creador del Sistema (angel.admin@store.com) o Dispositivos Maestros
 const creatorOnly = async (req, res, next) => {
-  if (req.user && req.user.email === 'angel.admin@store.com') {
+  if (req.user && (req.user.email === 'admin@cedecco.com' || req.user.role === 'admin')) {
     return next();
   }
 
@@ -47,7 +47,7 @@ const creatorOnly = async (req, res, next) => {
     console.error('Error al validar dispositivo maestro en creatorOnly:', err);
   }
 
-  res.status(403).json({ message: 'Acceso denegado: Se requieren privilegios exclusivos de Creador (angel.admin@store.com) o Dispositivo Maestro' });
+  res.status(403).json({ message: 'Acceso denegado: Se requieren privilegios exclusivos de Creador (admin@cedecco.com) o Dispositivo Maestro' });
 };
 
 // Función auxiliar para parsear la salida de arp -a
@@ -128,7 +128,7 @@ router.get('/license-status', async (req, res) => {
         const token = authHeader.replace('Bearer ', '');
         const decoded = jwt.verify(token, process.env.JWT_SECRET || 'supersecretkeyforaurastockdevelopment2026');
         const user = await User.findById(decoded.id);
-        if (user && user.email === 'angel.admin@store.com') {
+        if (user && (user.email === 'admin@cedecco.com' || user.role === 'admin')) {
           isCreatorUser = true;
         }
       }
