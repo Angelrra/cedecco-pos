@@ -286,6 +286,11 @@ export const getClientDevice = async (clientIp, clientMacHeader = '') => {
 
 // Middleware para bloquear la API si el sistema no está activado o el dispositivo fue dado de baja / no está registrado
 export const licenseMiddleware = async (req, res, next) => {
+  // Permitir omitir la validación de licencias y dispositivos en entornos de nube (Render/Vercel)
+  if (process.env.BYPASS_LICENSE === 'true') {
+    return next();
+  }
+
   const path = req.path;
   
   // Excluir endpoints de verificación, activación e inicio de sesión
