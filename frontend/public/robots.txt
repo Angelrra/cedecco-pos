@@ -1,0 +1,24 @@
+User-agent: *
+Disallow: /
+
+# Bloquear específicamente rastreadores de Inteligencia Artificial
+User-agent: GPTBot
+Disallow: /
+
+User-agent: ChatGPT-User
+Disallow: /
+
+User-agent: ClaudeBot
+Disallow: /
+
+User-agent: Claude-Web
+Disallow: /
+
+User-agent: Google-Extended
+Disallow: /
+
+User-agent: PerplexityBot
+Disallow: /
+
+User-agent: OAI-SearchBot
+Disallow: /
