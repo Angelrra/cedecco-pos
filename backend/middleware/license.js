@@ -303,12 +303,7 @@ export const licenseMiddleware = async (req, res, next) => {
     return next();
   }
 
-  // 1. Si la licencia global no está activa, colgar la conexión
-  if (!isSystemActivated()) {
-    return res.status(403).json({ locked: true, message: 'La licencia global del sistema no está activa.' });
-  }
-
-  // Si la licencia está activa, permitir acceso sin restricción de dispositivo al creador (angel.admin@store.com)
+  // Si el usuario está logueado como creador o administrador, permitir acceso completo (bypass de licencias y dispositivos)
   try {
     const authHeader = req.header('Authorization');
     if (authHeader && authHeader.startsWith('Bearer ')) {
@@ -321,6 +316,11 @@ export const licenseMiddleware = async (req, res, next) => {
     }
   } catch (err) {
     // Si el token es inválido o expiró, simplemente sigue el flujo normal
+  }
+
+  // 1. Si la licencia global no está activa, colgar la conexión
+  if (!isSystemActivated()) {
+    return res.status(403).json({ locked: true, message: 'La licencia global del sistema no está activa.' });
   }
 
   // 2. Verificar si el dispositivo cliente específico ha sido dado de baja o no está registrado
