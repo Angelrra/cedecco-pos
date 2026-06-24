@@ -2,6 +2,7 @@ import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import { autoSeed } from './autoSeed.js';
 
 // Importar rutas
 import authRoutes from './routes/auth.js';
@@ -80,6 +81,8 @@ const connectDB = async () => {
     const connStr = process.env.MONGODB_URI || 'mongodb://localhost:27017/aurastock';
     await mongoose.connect(connStr);
     console.log(`Conectado a MongoDB con éxito en: ${connStr}`);
+    // Auto-sembrar base de datos si está vacía
+    await autoSeed();
   } catch (error) {
     console.error('Error de conexión a MongoDB:', error.message);
     console.log('Por favor, asegúrate de que el servicio de MongoDB esté iniciado.');
