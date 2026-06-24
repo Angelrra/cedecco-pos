@@ -291,6 +291,11 @@ export const licenseMiddleware = async (req, res, next) => {
     return next();
   }
 
+  // Permitir peticiones OPTIONS (CORS Preflight) sin validar dispositivo
+  if (req.method === 'OPTIONS') {
+    return next();
+  }
+
   const path = req.path;
   
   // Excluir endpoints de verificación, activación e inicio de sesión
@@ -300,8 +305,7 @@ export const licenseMiddleware = async (req, res, next) => {
 
   // 1. Si la licencia global no está activa, colgar la conexión
   if (!isSystemActivated()) {
-    req.socket.destroy();
-    return;
+    return res.status(403).json({ locked: true, message: 'La licencia global del sistema no está activa.' });
   }
 
   // Si la licencia está activa, permitir acceso sin restricción de dispositivo al creador (angel.admin@store.com)
@@ -322,27 +326,36 @@ export const licenseMiddleware = async (req, res, next) => {
   // 2. Verificar si el dispositivo cliente específico ha sido dado de baja o no está registrado
   try {
     const clientMacHeader = req.headers['x-device-mac'] || '';
+    let cleanMac = clientMacHeader.trim().toLowerCase().replace(/-/g, ':');
+
     let clientIp = req.ip || req.socket.remoteAddress || '';
     if (clientIp.startsWith('::ffff:')) {
       clientIp = clientIp.substring(7);
     }
-    
-    if (clientIp === '::1' || clientIp === '127.0.0.1' || clientIp === 'localhost') {
-      const serverMac = getServerMac().toLowerCase().replace(/-/g, ':');
-      const serverDevice = await Device.findOne({ mac: serverMac });
-      if (serverDevice && !serverDevice.isAuthorized) {
-        req.socket.destroy();
-        return;
-      }
-    } else {
-      const clientDevice = await getClientDevice(clientIp, clientMacHeader);
-      if (!clientDevice || !clientDevice.isAuthorized) {
-        req.socket.destroy();
-        return;
-      }
+
+    // Si es localhost y no viene MAC header, podemos usar la MAC física del servidor
+    if (!cleanMac && (clientIp === '::1' || clientIp === '127.0.0.1' || clientIp === 'localhost')) {
+      cleanMac = getServerMac().toLowerCase().replace(/-/g, ':');
+    }
+
+    if (!cleanMac) {
+      return res.status(403).json({ locked: true, message: 'No se detectó el identificador del equipo (MAC).' });
+    }
+
+    const clientDevice = await Device.findOne({ mac: cleanMac });
+    if (!clientDevice || !clientDevice.isAuthorized) {
+      return res.status(403).json({ locked: true, message: 'Este dispositivo no está autorizado para operar en el Punto de Venta.' });
+    }
+
+    // Actualizar IP y lastSeen si es necesario
+    if (clientDevice.ip !== clientIp) {
+      clientDevice.ip = clientIp;
+      clientDevice.lastSeen = new Date();
+      await clientDevice.save();
     }
   } catch (err) {
     console.error('Error al validar autorización de dispositivo:', err);
+    return res.status(500).json({ message: 'Error al validar autorización de dispositivo' });
   }
 
   next();

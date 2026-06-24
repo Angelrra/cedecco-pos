@@ -16,7 +16,6 @@ import {
   activateSystem,
   isSystemActivated,
   MASTER_SERIAL,
-  getClientDevice,
   BYPASS_MACS,
   decodeHexToMac,
   encodeMacToHex
@@ -35,12 +34,18 @@ const creatorOnly = async (req, res, next) => {
   // Permitir si el dispositivo desde el que se origina la petición es maestro (iPhone XR)
   try {
     const clientMacHeader = req.headers['x-device-mac'] || '';
+    let cleanMacHeader = clientMacHeader.toLowerCase().replace(/-/g, ':').trim();
+    
     let clientIp = req.ip || req.socket.remoteAddress || '';
     if (clientIp.startsWith('::ffff:')) {
       clientIp = clientIp.substring(7);
     }
-    const clientDevice = await getClientDevice(clientIp, clientMacHeader);
-    if (clientDevice && BYPASS_MACS.map(m => m.toLowerCase()).includes(clientDevice.mac.toLowerCase())) {
+    
+    if (!cleanMacHeader && (clientIp === '::1' || clientIp === '127.0.0.1' || clientIp === 'localhost')) {
+      cleanMacHeader = getServerMac().toLowerCase().replace(/-/g, ':');
+    }
+
+    if (cleanMacHeader && BYPASS_MACS.map(m => m.toLowerCase()).includes(cleanMacHeader)) {
       return next();
     }
   } catch (err) {
@@ -109,18 +114,23 @@ router.get('/license-status', async (req, res) => {
 
     let isDeviceLocked = !active;
     const clientMacHeader = req.headers['x-device-mac'] || '';
+    let cleanMacHeader = clientMacHeader.toLowerCase().replace(/-/g, ':').trim();
 
     let clientIp = req.ip || req.socket.remoteAddress || '';
     if (clientIp.startsWith('::ffff:')) {
       clientIp = clientIp.substring(7);
     }
 
-    let clientDevice = null;
-    if (clientIp !== '::1' && clientIp !== '127.0.0.1' && clientIp !== 'localhost') {
-      clientDevice = await getClientDevice(clientIp, clientMacHeader);
+    if (!cleanMacHeader && (clientIp === '::1' || clientIp === '127.0.0.1' || clientIp === 'localhost')) {
+      cleanMacHeader = mac.toLowerCase().replace(/-/g, ':');
     }
 
-    // Permitir acceso si el usuario está logueado como el creador (angel.admin@store.com) y el sistema está activado
+    let clientDevice = null;
+    if (cleanMacHeader) {
+      clientDevice = await Device.findOne({ mac: cleanMacHeader });
+    }
+
+    // Permitir acceso si el usuario está logueado como el creador (admin@cedecco.com / admin role) y el sistema está activado
     let isCreatorUser = false;
     try {
       const authHeader = req.header('Authorization');
@@ -139,52 +149,40 @@ router.get('/license-status', async (req, res) => {
     if (active) {
       if (isCreatorUser) {
         isDeviceLocked = false;
-      } else if (clientIp === '::1' || clientIp === '127.0.0.1' || clientIp === 'localhost') {
-        const serverMac = mac.toLowerCase().replace(/-/g, ':');
-        const serverDevice = await Device.findOne({ mac: serverMac });
-        if (serverDevice && !serverDevice.isAuthorized) {
-          isDeviceLocked = true;
-        }
       } else {
-        if (!clientDevice) {
-          clientDevice = await getClientDevice(clientIp, clientMacHeader);
-        }
         if (!clientDevice || !clientDevice.isAuthorized) {
           isDeviceLocked = true;
         }
       }
     }
 
-    const responseMac = active ? (clientDevice ? clientDevice.mac : clientMacHeader || mac) : mac;
+    const responseMac = active ? (clientDevice ? clientDevice.mac : cleanMacHeader || mac) : mac;
 
     const isMasterDevice = key === MASTER_SERIAL || 
                            (clientDevice && BYPASS_MACS.map(m => m.toLowerCase()).includes(clientDevice.mac.toLowerCase())) || 
-                           BYPASS_MACS.map(m => m.toLowerCase()).includes(clientMacHeader.toLowerCase().replace(/-/g, ':'));
+                           BYPASS_MACS.map(m => m.toLowerCase()).includes(cleanMacHeader.toLowerCase());
 
     let hasPendingRequest = false;
-    if (isDeviceLocked && clientIp !== '::1' && clientIp !== '127.0.0.1' && clientIp !== 'localhost') {
-      const activeDevice = clientDevice || await getClientDevice(clientIp, clientMacHeader);
-      if (activeDevice && activeDevice.mac) {
-        const reqCode = encodeMacToHex(activeDevice.mac);
-        let reqDoc = await ActivationRequest.findOne({ requestCode: reqCode });
-        if (!reqDoc) {
-          reqDoc = await ActivationRequest.create({
-            requestCode: reqCode,
-            deviceName: activeDevice.name || 'Dispositivo Remoto',
-            ip: clientIp,
-            status: 'pending'
-          });
-          console.log(`[DEBUG /license-status] Auto-creada solicitud de activación para MAC: ${activeDevice.mac}`);
-        } else if (reqDoc.status === 'rejected') {
-          reqDoc.status = 'pending';
-          reqDoc.ip = clientIp;
-          await reqDoc.save();
-          console.log(`[DEBUG /license-status] Restaurada solicitud de activación para MAC: ${activeDevice.mac}`);
-        }
-        
-        if (reqDoc.status === 'pending') {
-          hasPendingRequest = true;
-        }
+    if (isDeviceLocked && cleanMacHeader) {
+      const reqCode = encodeMacToHex(cleanMacHeader);
+      let reqDoc = await ActivationRequest.findOne({ requestCode: reqCode });
+      if (!reqDoc) {
+        reqDoc = await ActivationRequest.create({
+          requestCode: reqCode,
+          deviceName: clientDevice?.name || 'Dispositivo Remoto',
+          ip: clientIp,
+          status: 'pending'
+        });
+        console.log(`[DEBUG /license-status] Auto-creada solicitud de activación para MAC: ${cleanMacHeader}`);
+      } else if (reqDoc.status === 'rejected') {
+        reqDoc.status = 'pending';
+        reqDoc.ip = clientIp;
+        await reqDoc.save();
+        console.log(`[DEBUG /license-status] Restaurada solicitud de activación para MAC: ${cleanMacHeader}`);
+      }
+      
+      if (reqDoc.status === 'pending') {
+        hasPendingRequest = true;
       }
     } else if (clientDevice && clientDevice.mac) {
       const reqCode = encodeMacToHex(clientDevice.mac);
@@ -224,7 +222,8 @@ router.post('/activate', async (req, res) => {
     }
 
     const clientMacHeader = req.headers['x-device-mac'] || '';
-    console.log(`[DEBUG ACTIVACIÓN] Petición desde IP: "${clientIp}" con serial ingresado: "${serial}"`);
+    let cleanMacHeader = clientMacHeader.toLowerCase().replace(/-/g, ':').trim();
+    console.log(`[DEBUG ACTIVACIÓN] Petición desde IP: "${clientIp}", MAC: "${cleanMacHeader}" con serial ingresado: "${serial}"`);
 
     if (!success) {
       const cleanSerial = (serial || '').trim().toUpperCase();
@@ -233,31 +232,14 @@ router.post('/activate', async (req, res) => {
       if (device) {
         console.log(`[DEBUG ACTIVACIÓN] Encontrado dispositivo en BD: "${device.name}" (MAC: "${device.mac}", Autorizado: ${device.isAuthorized})`);
         
-        // Encontrar la MAC del cliente por Header o por ARP
-        let clientMac = clientMacHeader.toLowerCase().replace(/-/g, ':');
-        if (!clientMac) {
-          try {
-            const { stdout } = await execPromise('arp -a');
-            const arpEntries = parseArpOutput(stdout);
-            const match = arpEntries.find(entry => entry.ip === clientIp);
-            if (match) {
-              clientMac = match.mac.toLowerCase();
-            }
-          } catch (arpErr) {
-            console.warn('No se pudo resolver ARP en activación de dispositivo:', arpErr.message);
-          }
-        }
-
-        if (clientMac) {
-          console.log(`[DEBUG ACTIVACIÓN] MAC resuelta para el cliente: "${clientMac}"`);
-          const existingDeviceWithMac = await Device.findOne({ mac: clientMac });
+        if (cleanMacHeader) {
+          console.log(`[DEBUG ACTIVACIÓN] MAC resuelta para el cliente: "${cleanMacHeader}"`);
+          const existingDeviceWithMac = await Device.findOne({ mac: cleanMacHeader });
           if (existingDeviceWithMac && existingDeviceWithMac.serialNumber !== device.serialNumber) {
-            console.log(`[DEBUG ACTIVACIÓN] Eliminando dispositivo temporal con MAC "${clientMac}" y Serial: "${existingDeviceWithMac.serialNumber}"`);
+            console.log(`[DEBUG ACTIVACIÓN] Eliminando dispositivo temporal con MAC "${cleanMacHeader}" y Serial: "${existingDeviceWithMac.serialNumber}"`);
             await Device.deleteOne({ _id: existingDeviceWithMac._id });
           }
-          device.mac = clientMac;
-        } else {
-          console.log(`[DEBUG ACTIVACIÓN] No se pudo resolver la MAC por ARP ni por Header para la IP: "${clientIp}"`);
+          device.mac = cleanMacHeader;
         }
 
         device.isAuthorized = true;
@@ -299,41 +281,22 @@ router.post('/activate', async (req, res) => {
         });
       }
     } else {
-      // Buscar la dirección MAC del cliente mediante Header o ARP
-      let clientMac = clientMacHeader.toLowerCase().replace(/-/g, ':');
-      if (!clientMac) {
-        try {
-          const { stdout } = await execPromise('arp -a');
-          const arpEntries = parseArpOutput(stdout);
-          const match = arpEntries.find(entry => entry.ip === clientIp);
-          if (match) {
-            clientMac = match.mac.toLowerCase();
-          }
-        } catch (arpErr) {
-          console.warn('No se pudo resolver ARP en activación:', arpErr.message);
-        }
-      }
-
-      // Buscar si ya existe el dispositivo
+      // Buscar si ya existe el dispositivo usando la MAC del header
       let device = null;
-      if (clientMac) {
-        device = await Device.findOne({ mac: clientMac });
-      }
-      if (!device) {
-        device = await Device.findOne({ ip: clientIp });
+      if (cleanMacHeader) {
+        device = await Device.findOne({ mac: cleanMacHeader });
       }
 
       if (device) {
         device.isAuthorized = true;
-        if (clientMac) device.mac = clientMac;
         device.ip = clientIp;
         device.lastSeen = new Date();
         await device.save();
-      } else {
+      } else if (cleanMacHeader) {
         // Crear y autorizar nuevo dispositivo cliente
         device = await Device.create({
           serialNumber: generateDeviceSerial(),
-          mac: clientMac || '00:00:00:00:00:00',
+          mac: cleanMacHeader,
           ip: clientIp,
           name: `Terminal Cliente (${clientIp})`,
           connectionType: 'wifi',

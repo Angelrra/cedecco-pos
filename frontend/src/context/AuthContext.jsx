@@ -265,7 +265,7 @@ export const AuthProvider = ({ children }) => {
       try {
         const clonedRes = response.clone();
         const data = await clonedRes.json();
-        const isCreator = user && user.email === 'angel.admin@store.com';
+        const isCreator = user && (user.email === 'admin@cedecco.com' || user.role === 'admin');
         if (data.locked && !isCreator) {
           logout();
           window.location.href = '/activacion';

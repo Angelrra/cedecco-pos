@@ -58,7 +58,7 @@ const CreatorRoute = ({ children }) => {
     );
   }
 
-  const isCreator = user && user.email === 'angel.admin@store.com';
+  const isCreator = user && (user.email === 'admin@cedecco.com' || user.role === 'admin');
   if (!user || (!isCreator && !isMasterDev)) {
     return <Navigate to="/" replace />;
   }
@@ -383,14 +383,14 @@ const AppContent = () => {
 
   // Redirección y cierre de sesión si el sistema está bloqueado (excepto para la pantalla de activación, login y si es el creador o dispositivo maestro)
   useEffect(() => {
-    const isCreator = user && user.email === 'angel.admin@store.com';
+    const isCreator = user && (user.email === 'admin@cedecco.com' || user.role === 'admin');
     const isMasterDev = localStorage.getItem('aura-device-is-master') === 'true';
     if (licenseChecked && isLocked && !isCreator && !isMasterDev && location.pathname !== '/activacion' && location.pathname !== '/login') {
       logout(); // Cierra sesión automáticamente al bloquear
     }
   }, [licenseChecked, isLocked, user, location.pathname]);
 
-  const isCreator = user && user.email === 'angel.admin@store.com';
+  const isCreator = user && (user.email === 'admin@cedecco.com' || user.role === 'admin');
   const isMasterDev = localStorage.getItem('aura-device-is-master') === 'true';
   if (licenseChecked && isLocked && !isCreator && !isMasterDev && location.pathname !== '/activacion' && location.pathname !== '/login') {
     return <Navigate to="/activacion" replace />;
