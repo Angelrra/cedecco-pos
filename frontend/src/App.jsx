@@ -343,6 +343,7 @@ const AppContent = () => {
   const location = useLocation();
   const [isLocked, setIsLocked] = useState(false);
   const [licenseChecked, setLicenseChecked] = useState(false);
+  const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
 
   // Consulta de estado de licencia
   const checkLicense = async () => {
@@ -363,6 +364,9 @@ const AppContent = () => {
         }
         if (data.mac) {
           localStorage.setItem('aura-device-mac', data.mac.toLowerCase());
+        }
+        if (data.pendingRequestsCount !== undefined) {
+          setPendingRequestsCount(data.pendingRequestsCount);
         }
       }
     } catch (err) {
@@ -404,7 +408,79 @@ const AppContent = () => {
   }
 
   return (
-    <Routes>
+    <>
+      {/* Banner de Notificación Global para el Admin de solicitudes pendientes */}
+      {isCreator && pendingRequestsCount > 0 && (
+        <>
+          <style dangerouslySetInnerHTML={{ __html: `
+            @keyframes slideInGlobalAlert {
+              from {
+                transform: translateY(-50px) scale(0.95);
+                opacity: 0;
+              }
+              to {
+                transform: translateY(0) scale(1);
+                opacity: 1;
+              }
+            }
+          `}} />
+          <div style={{
+            position: 'fixed',
+            top: '20px',
+            right: '20px',
+            zIndex: 9999,
+            background: 'rgba(30, 27, 75, 0.85)',
+            backdropFilter: 'blur(20px)',
+            border: '1px solid rgba(168, 85, 247, 0.5)',
+            borderRadius: '12px',
+            padding: '16px 20px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '15px',
+            boxShadow: '0 10px 40px rgba(0, 0, 0, 0.65), 0 0 20px rgba(168, 85, 247, 0.4)',
+            animation: 'slideInGlobalAlert 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
+            color: '#ffffff',
+            fontFamily: 'var(--font-main)'
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '38px',
+              height: '38px',
+              borderRadius: '50%',
+              background: 'rgba(168, 85, 247, 0.15)',
+              color: 'var(--color-secondary)',
+              border: '1px solid rgba(168, 85, 247, 0.3)'
+            }}>
+              <Shield size={20} className="icon-pulse" style={{ color: 'var(--color-secondary)' }} />
+            </div>
+            <div style={{ textAlign: 'left' }}>
+              <div style={{ fontWeight: 800, fontSize: '0.9rem', color: '#ffffff' }}>Solicitud de Activación</div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>
+                Hay {pendingRequestsCount} dispositivo(s) solicitando autorización.
+              </div>
+            </div>
+            <Link 
+              to="/dispositivos" 
+              className="btn btn-primary" 
+              style={{ 
+                padding: '8px 14px', 
+                fontSize: '0.78rem', 
+                fontWeight: 'bold', 
+                textDecoration: 'none',
+                background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%)',
+                border: 'none',
+                boxShadow: '0 0 10px rgba(99, 102, 241, 0.4)'
+              }}
+            >
+              Ver Solicitudes
+            </Link>
+          </div>
+        </>
+      )}
+
+      <Routes>
       {/* Pantalla de Activación Pública */}
       <Route
         path="/activacion"
@@ -520,6 +596,7 @@ const AppContent = () => {
       {/* Redirección por defecto */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </>
   );
 };
 

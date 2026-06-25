@@ -141,26 +141,9 @@ export const activateSystem = (serial) => {
   return false;
 };
 
-// Helper para buscar un dispositivo por IP o por MAC desde la tabla ARP
+// Helper para buscar un dispositivo por IP o por MAC
 export const getClientDevice = async (clientIp, clientMacHeader = '') => {
   let clientMac = (clientMacHeader || '').trim().toLowerCase().replace(/-/g, ':');
-  
-  if (!clientMac) {
-    try {
-      const { stdout } = await execPromise('arp -a');
-      const lines = stdout.split('\n');
-      const regex = /(\d+\.\d+\.\d+\.\d+)\s+([0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2})/i;
-      for (const line of lines) {
-        const match = regex.exec(line);
-        if (match && match[1] === clientIp) {
-          clientMac = match[2].toUpperCase().replace(/-/g, ':').toLowerCase();
-          break;
-        }
-      }
-    } catch (err) {
-      console.warn('Error al leer la tabla ARP para resolver el dispositivo:', err.message);
-    }
-  }
 
   if (clientMac) {
     const deviceByMac = await Device.findOne({ mac: clientMac });
@@ -186,7 +169,7 @@ export const getClientDevice = async (clientIp, clientMacHeader = '') => {
       });
       return newDev;
     } else {
-      // Registrar nuevo dispositivo con la MAC provista en lugar de caer al buscar por IP
+      // Registrar nuevo dispositivo con la MAC provista
       const bytes = crypto.randomBytes(6).toString('hex').toUpperCase();
       const serialNumber = `DEV-${bytes.substring(0, 4)}-${bytes.substring(4, 8)}-${bytes.substring(8, 12)}`;
       const newDev = await Device.create({
@@ -226,18 +209,17 @@ export const getClientDevice = async (clientIp, clientMacHeader = '') => {
     }
   }
 
-  // Solo si no hay MAC, buscar por IP
-  const deviceByIp = await Device.findOne({ ip: clientIp });
-  if (deviceByIp) {
-    if (deviceByIp.mac && BYPASS_MACS.includes(deviceByIp.mac) && !deviceByIp.isAuthorized) {
-      deviceByIp.isAuthorized = true;
-      await deviceByIp.save();
-    }
-    return deviceByIp;
-  }
-
-  // Si es un dispositivo nuevo y es una red remota
+  // Solo si no hay MAC y no es localhost, buscar por IP
   if (clientIp && clientIp !== '::1' && clientIp !== '127.0.0.1' && clientIp !== 'localhost') {
+    const deviceByIp = await Device.findOne({ ip: clientIp });
+    if (deviceByIp) {
+      if (deviceByIp.mac && BYPASS_MACS.includes(deviceByIp.mac) && !deviceByIp.isAuthorized) {
+        deviceByIp.isAuthorized = true;
+        await deviceByIp.save();
+      }
+      return deviceByIp;
+    }
+
     const bytes = crypto.randomBytes(6).toString('hex').toUpperCase();
     const serialNumber = `DEV-${bytes.substring(0, 4)}-${bytes.substring(4, 8)}-${bytes.substring(8, 12)}`;
     
@@ -284,7 +266,7 @@ export const getClientDevice = async (clientIp, clientMacHeader = '') => {
   return null;
 };
 
-// Obtiene la MAC física real (por ARP) o virtual (de cabeceras) del cliente de manera unificada
+// Obtiene la MAC física real (para localhost) o virtual (de cabeceras) del cliente de manera unificada
 export const resolveClientMac = async (req) => {
   let clientIp = req.ip || req.socket.remoteAddress || '';
   if (clientIp.startsWith('::ffff:')) {
@@ -296,26 +278,7 @@ export const resolveClientMac = async (req) => {
     return getServerMac().toLowerCase().replace(/-/g, ':');
   }
 
-  // 1. Intentar resolver la MAC física real desde la tabla ARP usando la IP del cliente
-  if (clientIp) {
-    try {
-      const { stdout } = await execPromise('arp -a');
-      const lines = stdout.split('\n');
-      const regex = /(\d+\.\d+\.\d+\.\d+)\s+([0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2})/i;
-      for (const line of lines) {
-        const match = regex.exec(line);
-        if (match && match[1] === clientIp) {
-          const resolvedMac = match[2].toUpperCase().replace(/-/g, ':').toLowerCase();
-          console.log(`[ARP RESOLVER] IP ${clientIp} resuelta como MAC física real: ${resolvedMac}`);
-          return resolvedMac;
-        }
-      }
-    } catch (err) {
-      console.warn(`[ARP RESOLVER] No se pudo leer la tabla ARP para la IP ${clientIp}:`, err.message);
-    }
-  }
-
-  // 2. Si no se encuentra en ARP (ej. nube o fallo de lectura), usamos la cabecera
+  // Para clientes remotos, usamos exclusivamente la cabecera enviada por el navegador
   const clientMacHeader = req.headers['x-device-mac'] || '';
   if (clientMacHeader) {
     return clientMacHeader.trim().toLowerCase().replace(/-/g, ':');
@@ -376,14 +339,55 @@ export const licenseMiddleware = async (req, res, next) => {
       return res.status(403).json({ locked: true, message: 'Este dispositivo no está autorizado para operar en el Punto de Venta.' });
     }
 
-    // Actualizar IP y lastSeen si es necesario
+    // Decodificar el token para rastrear qué usuario activo está haciendo la petición
+    let loggedInUser = null;
+    try {
+      const authHeader = req.header('Authorization');
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.replace('Bearer ', '');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'supersecretkeyforaurastockdevelopment2026');
+        const user = await User.findById(decoded.id);
+        if (user) {
+          loggedInUser = user;
+        }
+      }
+    } catch (err) {
+      // Ignorar errores del token
+    }
+
+    // Actualizar IP, lastSeen, activeUser y lastActive
     let clientIp = req.ip || req.socket.remoteAddress || '';
     if (clientIp.startsWith('::ffff:')) {
       clientIp = clientIp.substring(7);
     }
+
+    let needsSave = false;
     if (clientDevice.ip !== clientIp) {
       clientDevice.ip = clientIp;
-      clientDevice.lastSeen = new Date();
+      needsSave = true;
+    }
+
+    const newActiveUser = loggedInUser ? loggedInUser._id : null;
+    const now = new Date();
+    
+    // Comparar IDs de usuario de manera segura
+    const currentActiveUserId = clientDevice.activeUser ? clientDevice.activeUser.toString() : '';
+    const targetActiveUserId = newActiveUser ? newActiveUser.toString() : '';
+
+    if (
+      currentActiveUserId !== targetActiveUserId ||
+      !clientDevice.lastActive ||
+      (now - clientDevice.lastActive) > 5000
+    ) {
+      clientDevice.activeUser = newActiveUser;
+      clientDevice.lastActive = loggedInUser ? now : null;
+      needsSave = true;
+    }
+
+    clientDevice.lastSeen = now;
+    needsSave = true;
+
+    if (needsSave) {
       await clientDevice.save();
     }
   } catch (err) {

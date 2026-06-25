@@ -111,25 +111,35 @@ router.get('/license-status', async (req, res) => {
       clientIp = clientIp.substring(7);
     }
 
-    let clientDevice = null;
-    if (cleanMacHeader) {
-      clientDevice = await Device.findOne({ mac: cleanMacHeader });
-    }
-
     // Permitir acceso si el usuario está logueado como el creador (admin@cedecco.com / admin role) y el sistema está activado
     let isCreatorUser = false;
+    let loggedInUser = null;
     try {
       const authHeader = req.header('Authorization');
       if (authHeader && authHeader.startsWith('Bearer ')) {
         const token = authHeader.replace('Bearer ', '');
         const decoded = jwt.verify(token, process.env.JWT_SECRET || 'supersecretkeyforaurastockdevelopment2026');
         const user = await User.findById(decoded.id);
-        if (user && (user.email === 'admin@cedecco.com' || user.role === 'admin')) {
-          isCreatorUser = true;
+        if (user) {
+          loggedInUser = user;
+          if (user.email === 'admin@cedecco.com' || user.role === 'admin') {
+            isCreatorUser = true;
+          }
         }
       }
     } catch (err) {
       // Ignorar errores del token
+    }
+
+    let clientDevice = null;
+    if (cleanMacHeader) {
+      clientDevice = await Device.findOne({ mac: cleanMacHeader });
+      if (clientDevice) {
+        // Actualizar el estado del usuario activo en este dispositivo
+        clientDevice.activeUser = loggedInUser ? loggedInUser._id : null;
+        clientDevice.lastActive = loggedInUser ? new Date() : null;
+        await clientDevice.save();
+      }
     }
 
     if (active) {
@@ -146,7 +156,7 @@ router.get('/license-status', async (req, res) => {
 
     const isMasterDevice = key === MASTER_SERIAL || 
                            (clientDevice && BYPASS_MACS.map(m => m.toLowerCase()).includes(clientDevice.mac.toLowerCase())) || 
-                           BYPASS_MACS.map(m => m.toLowerCase()).includes(cleanMacHeader.toLowerCase());
+                           (cleanMacHeader && BYPASS_MACS.map(m => m.toLowerCase()).includes(cleanMacHeader.toLowerCase()));
 
     let hasPendingRequest = false;
     const checkMac = cleanMacHeader || (clientDevice ? clientDevice.mac : '');
@@ -158,12 +168,19 @@ router.get('/license-status', async (req, res) => {
       }
     }
 
+    // Contar solicitudes pendientes globales si el usuario es administrador
+    let pendingRequestsCount = 0;
+    if (isCreatorUser) {
+      pendingRequestsCount = await ActivationRequest.countDocuments({ status: 'pending' });
+    }
+
     res.json({
       locked: isDeviceLocked,
       mac: responseMac,
       serial: key,
       isMaster: isMasterDevice,
-      hasPendingRequest
+      hasPendingRequest,
+      pendingRequestsCount
     });
   } catch (error) {
     res.status(500).json({ message: 'Error al verificar estado de la licencia', error: error.message });
@@ -329,7 +346,7 @@ router.get('/', auth, creatorOnly, async (req, res) => {
     }
 
     // Cargar todos los dispositivos y routers registrados
-    const devices = await Device.find().sort({ lastSeen: -1 });
+    const devices = await Device.find().populate('activeUser', 'name email').sort({ lastSeen: -1 });
     const registeredRouters = await Router.find().sort({ createdAt: -1 });
 
     // Determinar si el router detectado está autorizado
@@ -415,10 +432,7 @@ router.put('/:id', auth, creatorOnly, async (req, res) => {
     if (name !== undefined) device.name = name;
     if (connectionType !== undefined) device.connectionType = connectionType;
     
-    if (isAuthorized === false) {
-      await Device.findByIdAndDelete(req.params.id);
-      return res.json({ success: true, message: 'Dispositivo dado de baja y eliminado con éxito.' });
-    } else if (isAuthorized !== undefined) {
+    if (isAuthorized !== undefined) {
       device.isAuthorized = isAuthorized;
     }
 

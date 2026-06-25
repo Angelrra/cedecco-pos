@@ -176,7 +176,8 @@ export const AuthProvider = ({ children }) => {
       const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'X-Device-Mac': getOrGenerateDeviceMac()
         },
         body: JSON.stringify({ email, password })
       });

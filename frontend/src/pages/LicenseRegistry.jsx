@@ -462,6 +462,7 @@ const LicenseRegistry = () => {
                   <th>IP Local</th>
                   <th>Nombre del Equipo</th>
                   <th>Red</th>
+                  <th>Usuario en Vivo</th>
                   <th>Acciones</th>
                 </tr>
               </thead>
@@ -488,6 +489,41 @@ const LicenseRegistry = () => {
                           <><Link2 size={13} style={{ color: '#10b981' }} /> Local</>
                         )}
                       </span>
+                    </td>
+                    <td>
+                      {(() => {
+                        const isLive = dev.lastActive && (new Date() - new Date(dev.lastActive)) < 15000;
+                        if (isLive && dev.activeUser) {
+                          return (
+                            <span style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              fontSize: '0.75rem',
+                              fontWeight: 'bold',
+                              background: 'rgba(16, 185, 129, 0.12)',
+                              color: '#10b981',
+                              border: '1px solid rgba(16, 185, 129, 0.3)',
+                              padding: '4px 8px',
+                              borderRadius: '12px'
+                            }} title={dev.activeUser.email}>
+                              <span style={{
+                                width: '6px',
+                                height: '6px',
+                                borderRadius: '50%',
+                                backgroundColor: '#10b981',
+                                boxShadow: '0 0 8px #10b981'
+                              }}></span>
+                              {dev.activeUser.name}
+                            </span>
+                          );
+                        }
+                        return (
+                          <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', opacity: 0.6 }}>
+                            Inactivo
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td>
                       <div style={{ display: 'flex', gap: '6px' }}>

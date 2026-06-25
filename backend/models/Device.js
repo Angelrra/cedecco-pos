@@ -33,6 +33,15 @@ const deviceSchema = new mongoose.Schema({
   lastSeen: {
     type: Date,
     default: Date.now
+  },
+  activeUser: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  lastActive: {
+    type: Date,
+    default: null
   }
 }, {
   timestamps: true

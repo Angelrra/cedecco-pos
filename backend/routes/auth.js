@@ -1,6 +1,8 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
+import Device from '../models/Device.js';
+import { resolveClientMac, BYPASS_MACS } from '../middleware/license.js';
 import { auth, adminOnly } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -92,6 +94,22 @@ router.post('/login', async (req, res) => {
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
       return res.status(400).json({ message: 'Credenciales inválidas (contraseña incorrecta)' });
+    }
+
+    // Verificar si el dispositivo está autorizado por MAC antes de permitir el inicio de sesión
+    if (process.env.BYPASS_LICENSE !== 'true' && user.role !== 'admin' && user.email !== 'admin@cedecco.com') {
+      const cleanMac = await resolveClientMac(req);
+      if (!cleanMac) {
+        return res.status(403).json({ message: 'No se detectó el identificador del equipo (MAC) necesario para autorizar el acceso.' });
+      }
+      
+      const isBypass = BYPASS_MACS.map(m => m.toLowerCase()).includes(cleanMac.toLowerCase());
+      if (!isBypass) {
+        const clientDevice = await Device.findOne({ mac: cleanMac });
+        if (!clientDevice || !clientDevice.isAuthorized) {
+          return res.status(403).json({ message: 'Este dispositivo no está autorizado para operar en el Punto de Venta.' });
+        }
+      }
     }
 
     res.json({
