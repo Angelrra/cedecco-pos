@@ -266,20 +266,50 @@ export const getClientDevice = async (clientIp, clientMacHeader = '') => {
   return null;
 };
 
-// Obtiene la MAC física real (para localhost) o virtual (de cabeceras) del cliente de manera unificada
+// Busca la MAC física de una IP en la tabla ARP del sistema
+export const getMacFromArp = async (ip) => {
+  if (!ip || ip === '127.0.0.1' || ip === '::1' || ip === 'localhost') {
+    return '';
+  }
+  try {
+    const { stdout } = await execPromise(`arp -a ${ip}`);
+    const lines = stdout.split('\n');
+    const regex = /([0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2})/i;
+    for (const line of lines) {
+      const match = regex.exec(line);
+      if (match) {
+        return match[1].toUpperCase().replace(/-/g, ':').toLowerCase();
+      }
+    }
+  } catch (err) {
+    console.warn(`No se pudo resolver la MAC física por ARP para la IP ${ip}:`, err.message);
+  }
+  return '';
+};
+
+// Obtiene la MAC física real (para localhost o LAN) o virtual (de cabeceras) del cliente de manera unificada
 export const resolveClientMac = async (req) => {
   let clientIp = req.ip || req.socket.remoteAddress || '';
   if (clientIp.startsWith('::ffff:')) {
     clientIp = clientIp.substring(7);
   }
 
-  // Usar la cabecera X-Device-Mac si existe (incluso en localhost) para permitir desarrollo local multiequipo
+  // 1. Intentar resolver la MAC física real del dispositivo desde la tabla ARP (para clientes locales en la misma LAN)
+  if (clientIp && clientIp !== '::1' && clientIp !== '127.0.0.1' && clientIp !== 'localhost') {
+    const arpMac = await getMacFromArp(clientIp);
+    if (arpMac) {
+      console.log(`[ARP LOG] Resuelta MAC física "${arpMac}" para la IP local "${clientIp}"`);
+      return arpMac;
+    }
+  }
+
+  // 2. Usar la cabecera X-Device-Mac si existe (incluso en localhost) para permitir desarrollo local multiequipo
   const clientMacHeader = req.headers['x-device-mac'] || '';
   if (clientMacHeader) {
     return clientMacHeader.trim().toLowerCase().replace(/-/g, ':');
   }
 
-  // Si es localhost y no hay cabecera, devolvemos la MAC física del servidor
+  // 3. Si es localhost y no hay cabecera, devolvemos la MAC física del servidor
   if (clientIp === '::1' || clientIp === '127.0.0.1' || clientIp === 'localhost') {
     return getServerMac().toLowerCase().replace(/-/g, ':');
   }
