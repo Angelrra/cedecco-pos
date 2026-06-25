@@ -226,7 +226,7 @@ const SidebarLayout = ({ children }) => {
                     <span>Personal</span>
                   </Link>
 
-                  {(user?.email === 'angel.admin@store.com' || localStorage.getItem('aura-device-is-master') === 'true') && (
+                  {(user?.email === 'admin@cedecco.com' || user?.role === 'admin' || localStorage.getItem('aura-device-is-master') === 'true') && (
                     <Link to="/dispositivos" className={`sidebar-link ${isActive('/dispositivos') ? 'active' : ''}`} onClick={() => setIsCollapsed(true)}>
                       <Cpu size={18} />
                       <span>Registro</span>
@@ -361,6 +361,9 @@ const AppContent = () => {
         if (data.isMaster !== undefined) {
           localStorage.setItem('aura-device-is-master', data.isMaster ? 'true' : 'false');
         }
+        if (data.mac) {
+          localStorage.setItem('aura-device-mac', data.mac.toLowerCase());
+        }
       }
     } catch (err) {
       console.error('Error al verificar licencia del servidor:', err);
@@ -371,8 +374,8 @@ const AppContent = () => {
 
   useEffect(() => {
     checkLicense();
-    // Refrescar estado de licencia cada 15 segundos de forma silenciosa
-    const interval = setInterval(checkLicense, 15000);
+    // Refrescar estado de licencia cada 5 segundos de forma silenciosa
+    const interval = setInterval(checkLicense, 5000);
     return () => clearInterval(interval);
   }, []);
 

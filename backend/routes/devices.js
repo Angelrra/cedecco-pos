@@ -18,14 +18,15 @@ import {
   MASTER_SERIAL,
   BYPASS_MACS,
   decodeHexToMac,
-  encodeMacToHex
+  encodeMacToHex,
+  resolveClientMac
 } from '../middleware/license.js';
 
 const router = express.Router();
 const execPromise = util.promisify(exec);
 const LICENSE_FILE = path.join(process.cwd(), '.licencia');
 
-// Middleware para permitir el acceso únicamente al Creador del Sistema (angel.admin@store.com) o Dispositivos Maestros
+// Middleware para permitir el acceso únicamente al Creador del Sistema (admin@cedecco.com) o Dispositivos Maestros
 const creatorOnly = async (req, res, next) => {
   if (req.user && (req.user.email === 'admin@cedecco.com' || req.user.role === 'admin')) {
     return next();
@@ -33,17 +34,7 @@ const creatorOnly = async (req, res, next) => {
 
   // Permitir si el dispositivo desde el que se origina la petición es maestro (iPhone XR)
   try {
-    const clientMacHeader = req.headers['x-device-mac'] || '';
-    let cleanMacHeader = clientMacHeader.toLowerCase().replace(/-/g, ':').trim();
-    
-    let clientIp = req.ip || req.socket.remoteAddress || '';
-    if (clientIp.startsWith('::ffff:')) {
-      clientIp = clientIp.substring(7);
-    }
-    
-    if (!cleanMacHeader && (clientIp === '::1' || clientIp === '127.0.0.1' || clientIp === 'localhost')) {
-      cleanMacHeader = getServerMac().toLowerCase().replace(/-/g, ':');
-    }
+    const cleanMacHeader = await resolveClientMac(req);
 
     if (cleanMacHeader && BYPASS_MACS.map(m => m.toLowerCase()).includes(cleanMacHeader)) {
       return next();
@@ -113,16 +104,11 @@ router.get('/license-status', async (req, res) => {
     }
 
     let isDeviceLocked = !active;
-    const clientMacHeader = req.headers['x-device-mac'] || '';
-    let cleanMacHeader = clientMacHeader.toLowerCase().replace(/-/g, ':').trim();
+    const cleanMacHeader = await resolveClientMac(req);
 
     let clientIp = req.ip || req.socket.remoteAddress || '';
     if (clientIp.startsWith('::ffff:')) {
       clientIp = clientIp.substring(7);
-    }
-
-    if (!cleanMacHeader && (clientIp === '::1' || clientIp === '127.0.0.1' || clientIp === 'localhost')) {
-      cleanMacHeader = mac.toLowerCase().replace(/-/g, ':');
     }
 
     let clientDevice = null;
@@ -221,9 +207,8 @@ router.post('/activate', async (req, res) => {
       clientIp = clientIp.substring(7);
     }
 
-    const clientMacHeader = req.headers['x-device-mac'] || '';
-    let cleanMacHeader = clientMacHeader.toLowerCase().replace(/-/g, ':').trim();
-    console.log(`[DEBUG ACTIVACIÓN] Petición desde IP: "${clientIp}", MAC: "${cleanMacHeader}" con serial ingresado: "${serial}"`);
+    const cleanMacHeader = await resolveClientMac(req);
+    console.log(`[DEBUG ACTIVACIÓN] Petición desde IP: "${clientIp}", MAC resuelta: "${cleanMacHeader}" con serial ingresado: "${serial}"`);
 
     if (!success) {
       const cleanSerial = (serial || '').trim().toUpperCase();

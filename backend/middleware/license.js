@@ -284,6 +284,46 @@ export const getClientDevice = async (clientIp, clientMacHeader = '') => {
   return null;
 };
 
+// Obtiene la MAC física real (por ARP) o virtual (de cabeceras) del cliente de manera unificada
+export const resolveClientMac = async (req) => {
+  let clientIp = req.ip || req.socket.remoteAddress || '';
+  if (clientIp.startsWith('::ffff:')) {
+    clientIp = clientIp.substring(7);
+  }
+
+  // Si es localhost, devolvemos la MAC física del servidor
+  if (clientIp === '::1' || clientIp === '127.0.0.1' || clientIp === 'localhost') {
+    return getServerMac().toLowerCase().replace(/-/g, ':');
+  }
+
+  // 1. Intentar resolver la MAC física real desde la tabla ARP usando la IP del cliente
+  if (clientIp) {
+    try {
+      const { stdout } = await execPromise('arp -a');
+      const lines = stdout.split('\n');
+      const regex = /(\d+\.\d+\.\d+\.\d+)\s+([0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2})/i;
+      for (const line of lines) {
+        const match = regex.exec(line);
+        if (match && match[1] === clientIp) {
+          const resolvedMac = match[2].toUpperCase().replace(/-/g, ':').toLowerCase();
+          console.log(`[ARP RESOLVER] IP ${clientIp} resuelta como MAC física real: ${resolvedMac}`);
+          return resolvedMac;
+        }
+      }
+    } catch (err) {
+      console.warn(`[ARP RESOLVER] No se pudo leer la tabla ARP para la IP ${clientIp}:`, err.message);
+    }
+  }
+
+  // 2. Si no se encuentra en ARP (ej. nube o fallo de lectura), usamos la cabecera
+  const clientMacHeader = req.headers['x-device-mac'] || '';
+  if (clientMacHeader) {
+    return clientMacHeader.trim().toLowerCase().replace(/-/g, ':');
+  }
+
+  return '';
+};
+
 // Middleware para bloquear la API si el sistema no está activado o el dispositivo fue dado de baja / no está registrado
 export const licenseMiddleware = async (req, res, next) => {
   // Permitir omitir la validación de licencias y dispositivos en entornos de nube (Render/Vercel)
@@ -325,18 +365,7 @@ export const licenseMiddleware = async (req, res, next) => {
 
   // 2. Verificar si el dispositivo cliente específico ha sido dado de baja o no está registrado
   try {
-    const clientMacHeader = req.headers['x-device-mac'] || '';
-    let cleanMac = clientMacHeader.trim().toLowerCase().replace(/-/g, ':');
-
-    let clientIp = req.ip || req.socket.remoteAddress || '';
-    if (clientIp.startsWith('::ffff:')) {
-      clientIp = clientIp.substring(7);
-    }
-
-    // Si es localhost y no viene MAC header, podemos usar la MAC física del servidor
-    if (!cleanMac && (clientIp === '::1' || clientIp === '127.0.0.1' || clientIp === 'localhost')) {
-      cleanMac = getServerMac().toLowerCase().replace(/-/g, ':');
-    }
+    const cleanMac = await resolveClientMac(req);
 
     if (!cleanMac) {
       return res.status(403).json({ locked: true, message: 'No se detectó el identificador del equipo (MAC).' });
@@ -348,6 +377,10 @@ export const licenseMiddleware = async (req, res, next) => {
     }
 
     // Actualizar IP y lastSeen si es necesario
+    let clientIp = req.ip || req.socket.remoteAddress || '';
+    if (clientIp.startsWith('::ffff:')) {
+      clientIp = clientIp.substring(7);
+    }
     if (clientDevice.ip !== clientIp) {
       clientDevice.ip = clientIp;
       clientDevice.lastSeen = new Date();
