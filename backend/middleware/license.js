@@ -273,15 +273,15 @@ export const resolveClientMac = async (req) => {
     clientIp = clientIp.substring(7);
   }
 
-  // Si es localhost, devolvemos la MAC física del servidor
-  if (clientIp === '::1' || clientIp === '127.0.0.1' || clientIp === 'localhost') {
-    return getServerMac().toLowerCase().replace(/-/g, ':');
-  }
-
-  // Para clientes remotos, usamos exclusivamente la cabecera enviada por el navegador
+  // Usar la cabecera X-Device-Mac si existe (incluso en localhost) para permitir desarrollo local multiequipo
   const clientMacHeader = req.headers['x-device-mac'] || '';
   if (clientMacHeader) {
     return clientMacHeader.trim().toLowerCase().replace(/-/g, ':');
+  }
+
+  // Si es localhost y no hay cabecera, devolvemos la MAC física del servidor
+  if (clientIp === '::1' || clientIp === '127.0.0.1' || clientIp === 'localhost') {
+    return getServerMac().toLowerCase().replace(/-/g, ':');
   }
 
   return '';
@@ -334,7 +334,12 @@ export const licenseMiddleware = async (req, res, next) => {
       return res.status(403).json({ locked: true, message: 'No se detectó el identificador del equipo (MAC).' });
     }
 
-    const clientDevice = await Device.findOne({ mac: cleanMac });
+    let clientIp = req.ip || req.socket.remoteAddress || '';
+    if (clientIp.startsWith('::ffff:')) {
+      clientIp = clientIp.substring(7);
+    }
+
+    const clientDevice = await getClientDevice(clientIp, cleanMac);
     if (!clientDevice || !clientDevice.isAuthorized) {
       return res.status(403).json({ locked: true, message: 'Este dispositivo no está autorizado para operar en el Punto de Venta.' });
     }
@@ -356,11 +361,6 @@ export const licenseMiddleware = async (req, res, next) => {
     }
 
     // Actualizar IP, lastSeen, activeUser y lastActive
-    let clientIp = req.ip || req.socket.remoteAddress || '';
-    if (clientIp.startsWith('::ffff:')) {
-      clientIp = clientIp.substring(7);
-    }
-
     let needsSave = false;
     if (clientDevice.ip !== clientIp) {
       clientDevice.ip = clientIp;

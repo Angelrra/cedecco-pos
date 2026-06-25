@@ -19,7 +19,8 @@ import {
   BYPASS_MACS,
   decodeHexToMac,
   encodeMacToHex,
-  resolveClientMac
+  resolveClientMac,
+  getClientDevice
 } from '../middleware/license.js';
 
 const router = express.Router();
@@ -133,7 +134,7 @@ router.get('/license-status', async (req, res) => {
 
     let clientDevice = null;
     if (cleanMacHeader) {
-      clientDevice = await Device.findOne({ mac: cleanMacHeader });
+      clientDevice = await getClientDevice(clientIp, cleanMacHeader);
       if (clientDevice) {
         // Actualizar el estado del usuario activo en este dispositivo
         clientDevice.activeUser = loggedInUser ? loggedInUser._id : null;
@@ -347,6 +348,15 @@ router.get('/', auth, creatorOnly, async (req, res) => {
 
     // Cargar todos los dispositivos y routers registrados
     const devices = await Device.find().populate('activeUser', 'name email').sort({ lastSeen: -1 });
+    
+    // Calcular isLive basado en la hora del servidor para evitar discrepancias de relojes cliente-servidor
+    const now = new Date();
+    const processedDevices = devices.map(dev => {
+      const devObj = dev.toObject();
+      devObj.isLive = dev.lastActive && (now - new Date(dev.lastActive)) < 15000;
+      return devObj;
+    });
+
     const registeredRouters = await Router.find().sort({ createdAt: -1 });
 
     // Determinar si el router detectado está autorizado
@@ -354,7 +364,7 @@ router.get('/', auth, creatorOnly, async (req, res) => {
     const routerAuthorized = currentRouterDb ? currentRouterDb.isAuthorized : true;
 
     res.json({
-      devices,
+      devices: processedDevices,
       router: {
         ip: detectedRouter.ip,
         mac: detectedRouter.mac,

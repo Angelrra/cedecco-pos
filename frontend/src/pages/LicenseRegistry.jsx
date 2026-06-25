@@ -81,18 +81,27 @@ const LicenseRegistry = () => {
   useEffect(() => {
     loadData();
 
-    // Consultar periódicamente cada 4 segundos las solicitudes pendientes para mostrarlas al instante
+    // Refrescar periódicamente toda la información de red, dispositivos y solicitudes cada 5 segundos
     const interval = setInterval(async () => {
       try {
+        // 1. Refrescar dispositivos y routers
+        const netRes = await apiFetch('/devices');
+        if (netRes.ok) {
+          const netData = await netRes.json();
+          setDevices(netData.devices || []);
+          setRouterInfo(netData.router || { ip: '', mac: '', isAuthorized: true, registeredRouters: [] });
+        }
+
+        // 2. Refrescar solicitudes pendientes
         const reqRes = await apiFetch('/devices/activation-requests/pending');
         if (reqRes.ok) {
           const reqData = await reqRes.json();
           setActivationRequests(reqData.requests || []);
         }
       } catch (err) {
-        console.error('Error al actualizar solicitudes pendientes:', err);
+        console.error('Error al refrescar datos en segundo plano:', err);
       }
-    }, 4000);
+    }, 5000);
 
     return () => clearInterval(interval);
   }, []);
@@ -492,8 +501,7 @@ const LicenseRegistry = () => {
                     </td>
                     <td>
                       {(() => {
-                        const isLive = dev.lastActive && (new Date() - new Date(dev.lastActive)) < 15000;
-                        if (isLive && dev.activeUser) {
+                        if (dev.isLive && dev.activeUser) {
                           return (
                             <span style={{
                               display: 'inline-flex',
