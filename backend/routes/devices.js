@@ -149,29 +149,9 @@ router.get('/license-status', async (req, res) => {
                            BYPASS_MACS.map(m => m.toLowerCase()).includes(cleanMacHeader.toLowerCase());
 
     let hasPendingRequest = false;
-    if (isDeviceLocked && cleanMacHeader) {
-      const reqCode = encodeMacToHex(cleanMacHeader);
-      let reqDoc = await ActivationRequest.findOne({ requestCode: reqCode });
-      if (!reqDoc) {
-        reqDoc = await ActivationRequest.create({
-          requestCode: reqCode,
-          deviceName: clientDevice?.name || 'Dispositivo Remoto',
-          ip: clientIp,
-          status: 'pending'
-        });
-        console.log(`[DEBUG /license-status] Auto-creada solicitud de activación para MAC: ${cleanMacHeader}`);
-      } else if (reqDoc.status === 'rejected') {
-        reqDoc.status = 'pending';
-        reqDoc.ip = clientIp;
-        await reqDoc.save();
-        console.log(`[DEBUG /license-status] Restaurada solicitud de activación para MAC: ${cleanMacHeader}`);
-      }
-      
-      if (reqDoc.status === 'pending') {
-        hasPendingRequest = true;
-      }
-    } else if (clientDevice && clientDevice.mac) {
-      const reqCode = encodeMacToHex(clientDevice.mac);
+    const checkMac = cleanMacHeader || (clientDevice ? clientDevice.mac : '');
+    if (checkMac) {
+      const reqCode = encodeMacToHex(checkMac);
       const reqDoc = await ActivationRequest.findOne({ requestCode: reqCode });
       if (reqDoc && reqDoc.status === 'pending') {
         hasPendingRequest = true;
