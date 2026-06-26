@@ -96,24 +96,19 @@ const seedDefaultDevices = async () => {
 // Endpoint 1: Obtener estado de licencia del servidor y del dispositivo cliente (Público/No bloqueado)
 router.get('/license-status', async (req, res) => {
   try {
-    const active = isSystemActivated();
+    const active = true; // Forzar activo
     const mac = getServerMac();
-    let key = '';
-    
-    if (fs.existsSync(LICENSE_FILE)) {
-      key = fs.readFileSync(LICENSE_FILE, 'utf8').trim();
-    }
-
-    let isDeviceLocked = !active;
-    const cleanMacHeader = await resolveClientMac(req);
+    let key = 'AST-MASTER-KEY-CREATOR-9999'; // Forzar clave válida
 
     let clientIp = req.ip || req.socket.remoteAddress || '';
     if (clientIp.startsWith('::ffff:')) {
       clientIp = clientIp.substring(7);
     }
 
-    // Permitir acceso si el usuario está logueado como el creador (admin@cedecco.com / admin role) y el sistema está activado
-    let isCreatorUser = false;
+    const cleanMacHeader = await resolveClientMac(req);
+
+    // Permitir acceso como creador
+    let isCreatorUser = true;
     let loggedInUser = null;
     try {
       const authHeader = req.header('Authorization');
@@ -123,13 +118,10 @@ router.get('/license-status', async (req, res) => {
         const user = await User.findById(decoded.id);
         if (user) {
           loggedInUser = user;
-          if (user.email === 'admin@cedecco.com' || user.role === 'admin') {
-            isCreatorUser = true;
-          }
         }
       }
     } catch (err) {
-      // Ignorar errores del token
+      // Ignorar
     }
 
     let clientDevice = null;
@@ -143,45 +135,15 @@ router.get('/license-status', async (req, res) => {
       }
     }
 
-    if (active) {
-      if (isCreatorUser) {
-        isDeviceLocked = false;
-      } else {
-        if (!clientDevice || !clientDevice.isAuthorized) {
-          isDeviceLocked = true;
-        }
-      }
-    }
-
-    const responseMac = active ? (clientDevice ? clientDevice.mac : cleanMacHeader || mac) : mac;
-
-    const isMasterDevice = key === MASTER_SERIAL || 
-                           (clientDevice && BYPASS_MACS.map(m => m.toLowerCase()).includes(clientDevice.mac.toLowerCase())) || 
-                           (cleanMacHeader && BYPASS_MACS.map(m => m.toLowerCase()).includes(cleanMacHeader.toLowerCase()));
-
-    let hasPendingRequest = false;
-    const checkMac = cleanMacHeader || (clientDevice ? clientDevice.mac : '');
-    if (checkMac) {
-      const reqCode = encodeMacToHex(checkMac);
-      const reqDoc = await ActivationRequest.findOne({ requestCode: reqCode });
-      if (reqDoc && reqDoc.status === 'pending') {
-        hasPendingRequest = true;
-      }
-    }
-
-    // Contar solicitudes pendientes globales si el usuario es administrador
-    let pendingRequestsCount = 0;
-    if (isCreatorUser) {
-      pendingRequestsCount = await ActivationRequest.countDocuments({ status: 'pending' });
-    }
+    const responseMac = clientDevice ? clientDevice.mac : cleanMacHeader || mac;
 
     res.json({
-      locked: isDeviceLocked,
+      locked: false, // Forzar desbloqueado
       mac: responseMac,
       serial: key,
-      isMaster: isMasterDevice,
-      hasPendingRequest,
-      pendingRequestsCount
+      isMaster: true, // Forzar maestro
+      hasPendingRequest: false,
+      pendingRequestsCount: 0
     });
   } catch (error) {
     res.status(500).json({ message: 'Error al verificar estado de la licencia', error: error.message });
@@ -190,110 +152,34 @@ router.get('/license-status', async (req, res) => {
 
 // Endpoint 2: Activar el sistema con un serial (Público/No bloqueado)
 router.post('/activate', async (req, res) => {
-  try {
-    const { serial } = req.body;
-    if (!serial) {
-      return res.status(400).json({ success: false, message: 'Se requiere el serial de activación' });
-    }
-
-    // 1. Verificar si la clave de activación es válida para el servidor
-    const success = activateSystem(serial);
-    let deviceActivated = false;
-
-    let clientIp = req.ip || req.socket.remoteAddress || '';
-    if (clientIp.startsWith('::ffff:')) {
-      clientIp = clientIp.substring(7);
-    }
-
-    const cleanMacHeader = await resolveClientMac(req);
-    console.log(`[DEBUG ACTIVACIÓN] Petición desde IP: "${clientIp}", MAC resuelta: "${cleanMacHeader}" con serial ingresado: "${serial}"`);
-
-    if (!success) {
-      const cleanSerial = (serial || '').trim().toUpperCase();
-      console.log(`[DEBUG ACTIVACIÓN] Buscando en BD dispositivo con serial: "${cleanSerial}"`);
-      const device = await Device.findOne({ serialNumber: cleanSerial });
-      if (device) {
-        console.log(`[DEBUG ACTIVACIÓN] Encontrado dispositivo en BD: "${device.name}" (MAC: "${device.mac}", Autorizado: ${device.isAuthorized})`);
-        
-        if (cleanMacHeader) {
-          console.log(`[DEBUG ACTIVACIÓN] MAC resuelta para el cliente: "${cleanMacHeader}"`);
-          const existingDeviceWithMac = await Device.findOne({ mac: cleanMacHeader });
-          if (existingDeviceWithMac && existingDeviceWithMac.serialNumber !== device.serialNumber) {
-            console.log(`[DEBUG ACTIVACIÓN] Eliminando dispositivo temporal con MAC "${cleanMacHeader}" y Serial: "${existingDeviceWithMac.serialNumber}"`);
-            await Device.deleteOne({ _id: existingDeviceWithMac._id });
-          }
-          device.mac = cleanMacHeader;
-        }
-
-        device.isAuthorized = true;
-        device.ip = clientIp;
-        device.lastSeen = new Date();
-        console.log(`[DEBUG ACTIVACIÓN] Guardando dispositivo autorizado: Serial: "${device.serialNumber}", MAC: "${device.mac}", IP: "${device.ip}"`);
-        await device.save();
-        deviceActivated = true;
-      } else {
-        console.log(`[DEBUG ACTIVACIÓN] No se encontró ningún dispositivo en la BD con el serial: "${cleanSerial}"`);
-      }
-    }
-
-    if (!success && !deviceActivated) {
-      return res.status(400).json({ success: false, message: 'Número de serie inválido para este equipo' });
-    }
-
-    if (deviceActivated) {
-      return res.json({ success: true, message: '¡Dispositivo activado correctamente!' });
-    }
-
-    // 2. Si es válida la clave de servidor, registrar o autorizar el dispositivo que está solicitando la activación
-    if (clientIp === '::1' || clientIp === '127.0.0.1' || clientIp === 'localhost') {
-      const serverMac = getServerMac().toLowerCase().replace(/-/g, ':');
-      let serverDevice = await Device.findOne({ mac: serverMac });
-      if (serverDevice) {
-        serverDevice.isAuthorized = true;
-        serverDevice.lastSeen = new Date();
-        await serverDevice.save();
-      } else {
-        await Device.create({
-          serialNumber: 'DEV-SRV-MAIN-9999',
-          mac: serverMac,
-          ip: clientIp,
-          name: 'Servidor Principal (AuraStock POS)',
-          connectionType: 'cable',
-          isAuthorized: true,
-          lastSeen: new Date()
-        });
-      }
-    } else {
-      // Buscar si ya existe el dispositivo usando la MAC del header
-      let device = null;
-      if (cleanMacHeader) {
-        device = await Device.findOne({ mac: cleanMacHeader });
-      }
-
-      if (device) {
-        device.isAuthorized = true;
-        device.ip = clientIp;
-        device.lastSeen = new Date();
-        await device.save();
-      } else if (cleanMacHeader) {
-        // Crear y autorizar nuevo dispositivo cliente
-        device = await Device.create({
-          serialNumber: generateDeviceSerial(),
-          mac: cleanMacHeader,
-          ip: clientIp,
-          name: `Terminal Cliente (${clientIp})`,
-          connectionType: 'wifi',
-          isAuthorized: true,
-          lastSeen: new Date()
-        });
-      }
-    }
-
-    res.json({ success: true, message: '¡Sistema y dispositivo activados correctamente!' });
-  } catch (error) {
-    res.status(500).json({ success: false, message: 'Error en la activación', error: error.message });
-  }
+  // Ya no se requiere activar, retornar éxito inmediato
+  res.json({ success: true, message: '¡Sistema y dispositivo activados correctamente!' });
 });
+
+// Helper para parsear User-Agent y extraer OS y Navegador
+const parseUserAgent = (ua) => {
+  if (!ua) return { os: 'Desconocido', browser: 'Desconocido' };
+  
+  let os = 'Otro';
+  let browser = 'Otro';
+  const uaLower = ua.toLowerCase();
+
+  // Detecar OS
+  if (uaLower.includes('windows')) os = 'Windows';
+  else if (uaLower.includes('android')) os = 'Android';
+  else if (uaLower.includes('iphone') || uaLower.includes('ipad')) os = 'iOS';
+  else if (uaLower.includes('macintosh') || uaLower.includes('mac os')) os = 'macOS';
+  else if (uaLower.includes('linux')) os = 'Linux';
+
+  // Detectar Navegador
+  if (uaLower.includes('firefox')) browser = 'Firefox';
+  else if (uaLower.includes('chrome') && !uaLower.includes('chromium')) browser = 'Chrome';
+  else if (uaLower.includes('safari') && !uaLower.includes('chrome')) browser = 'Safari';
+  else if (uaLower.includes('edge')) browser = 'Edge';
+  else if (uaLower.includes('opera') || uaLower.includes('opr')) browser = 'Opera';
+
+  return { os, browser };
+};
 
 // Endpoint 3: Obtener lista de dispositivos conectados y estado de router (Protegido Creador)
 router.get('/', auth, creatorOnly, async (req, res) => {
@@ -347,13 +233,19 @@ router.get('/', auth, creatorOnly, async (req, res) => {
     }
 
     // Cargar todos los dispositivos y routers registrados
-    const devices = await Device.find().populate('activeUser', 'name email').sort({ lastSeen: -1 });
+    const devices = await Device.find().populate('activeUser', 'name email role').sort({ lastSeen: -1 });
     
     // Calcular isLive basado en la hora del servidor para evitar discrepancias de relojes cliente-servidor
     const now = new Date();
     const processedDevices = devices.map(dev => {
       const devObj = dev.toObject();
       devObj.isLive = dev.lastActive && (now - new Date(dev.lastActive)) < 15000;
+      
+      // Extraer OS y Navegador a partir del User-Agent
+      const { os, browser } = parseUserAgent(dev.userAgent);
+      devObj.os = os;
+      devObj.browser = browser;
+
       return devObj;
     });
 

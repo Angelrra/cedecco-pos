@@ -10,6 +10,7 @@ const Configuracion = () => {
   const [ticketAddress, setTicketAddress] = useState('');
   const [ticketPhone, setTicketPhone] = useState('');
   const [mpToken, setMpToken] = useState('');
+  const [aiProtectionsEnabled, setAiProtectionsEnabled] = useState(true);
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -45,6 +46,7 @@ const Configuracion = () => {
         setTicketAddress(data.ticketAddress || '');
         setTicketPhone(data.ticketPhone || '');
         setMpToken(data.mercadopagoAccessToken || '');
+        setAiProtectionsEnabled(data.aiProtectionsEnabled !== false);
         
         // Sincronizar también con localStorage para que el POS local se actualice de inmediato
         if (data.ticketName) localStorage.setItem('ticketName', data.ticketName);
@@ -77,7 +79,8 @@ const Configuracion = () => {
           ticketName,
           ticketAddress,
           ticketPhone,
-          mercadopagoAccessToken: mpToken
+          mercadopagoAccessToken: mpToken,
+          aiProtectionsEnabled
         })
       });
 
@@ -116,7 +119,7 @@ const Configuracion = () => {
           <Settings size={36} className="spin-hover" style={{ color: 'var(--color-primary-light)' }} />
           <span>Configuración del Sistema</span>
         </h1>
-        <p style={{ color: 'var(--color-text-muted)' }}>Configura los datos del ticket comercial y las credenciales de cobro automático por Mercado Pago.</p>
+        <p style={{ color: 'var(--color-text-muted)' }}>Configura los datos del ticket comercial y las protecciones de seguridad perimetral.</p>
       </div>
 
       {errorMsg && (
@@ -176,7 +179,7 @@ const Configuracion = () => {
                 />
               </div>
 
-              <div className="input-group" style={{ marginBottom: '30px' }}>
+              <div className="input-group" style={{ marginBottom: '25px' }}>
                 <label className="input-label">Teléfono de Contacto</label>
                 <input
                   type="text"
@@ -187,6 +190,56 @@ const Configuracion = () => {
                   disabled={!isAdmin}
                   required
                 />
+              </div>
+
+              {/* Bloque Seguridad Perimetral / IA Protections */}
+              <h4 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--color-secondary)', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <ShieldAlert size={18} style={{ color: 'var(--color-secondary)' }} />
+                Seguridad Perimetral y Filtro IA
+              </h4>
+
+              <div className="input-group" style={{ marginBottom: '25px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,0.03)', padding: '12px 15px', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
+                <div style={{ textAlign: 'left', marginRight: '15px' }}>
+                  <span style={{ fontSize: '0.88rem', fontWeight: 'bold', display: 'block' }}>Bloquear Agentes de IA y Bots</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                    Cuelga automáticamente conexiones originadas por scrapers, cURL, Python y agentes como GPT o Claude.
+                  </span>
+                </div>
+                <div>
+                  <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '50px', height: '26px' }}>
+                    <input
+                      type="checkbox"
+                      checked={aiProtectionsEnabled}
+                      onChange={(e) => setAiProtectionsEnabled(e.target.checked)}
+                      disabled={!isAdmin}
+                      style={{ opacity: 0, width: 0, height: 0 }}
+                    />
+                    <span style={{
+                      position: 'absolute',
+                      cursor: 'pointer',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      backgroundColor: aiProtectionsEnabled ? 'var(--color-success)' : '#4b5563',
+                      transition: '.3s',
+                      borderRadius: '34px',
+                      boxShadow: aiProtectionsEnabled ? '0 0 10px rgba(16, 185, 129, 0.4)' : 'none'
+                    }}>
+                      <span style={{
+                        position: 'absolute',
+                        content: '""',
+                        height: '18px',
+                        width: '18px',
+                        left: aiProtectionsEnabled ? '26px' : '4px',
+                        bottom: '4px',
+                        backgroundColor: 'white',
+                        transition: '.3s',
+                        borderRadius: '50%'
+                      }}></span>
+                    </span>
+                  </label>
+                </div>
               </div>
 
               {/* Bloque Mercado Pago */}
@@ -282,6 +335,34 @@ const Configuracion = () => {
               <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', lineHeight: '1.4' }}>
                 Los datos de este ticket se almacenan en una base de datos centralizada de MongoDB, garantizando que todas las terminales POS en red impriman comprobantes idénticos de manera consistente.
               </p>
+            </div>
+
+            {/* Panel de Protecciones de Seguridad del Sistema */}
+            <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '12px', borderLeft: '4px solid var(--color-primary)' }}>
+              <h4 style={{ fontWeight: 'bold', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <ShieldAlert size={16} style={{ color: 'var(--color-primary-light)' }} />
+                Protecciones de Seguridad POS
+              </h4>
+              <p style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', lineHeight: '1.4', margin: 0 }}>
+                Para blindar el sistema comercial y evitar accesos no autorizados a la base de datos de facturación, se recomienda aplicar las siguientes directivas:
+              </p>
+              <ul style={{ fontSize: '0.78rem', color: 'var(--color-text-main)', paddingLeft: '18px', margin: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <li>
+                  <strong>Filtro de User-Agent (Bot Guard):</strong> Activa el switch para denegar peticiones automáticas de librerías HTTP (Python, cURL) y scrapers de IA.
+                </li>
+                <li>
+                  <strong>Cifrado SSL/TLS (HTTPS):</strong> Configura un certificado SSL en el servidor para evitar que las credenciales y ventas viajen en texto plano por la red local.
+                </li>
+                <li>
+                  <strong>Autenticación de Dos Factores (2FA):</strong> Para cuentas de administrador, protegiendo contra el robo de contraseñas de personal.
+                </li>
+                <li>
+                  <strong>Rate Limiting:</strong> Limita el número máximo de peticiones por minuto desde una misma IP local para mitigar ataques de denegación de servicio (DoS).
+                </li>
+                <li>
+                  <strong>Bitácora Testigo Auditora:</strong> Mantén activa la auditoría para registrar cada alteración de stock o precios realizada por vendedores.
+                </li>
+              </ul>
             </div>
           </div>
 

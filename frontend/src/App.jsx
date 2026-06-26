@@ -358,15 +358,15 @@ const AppContent = () => {
       const res = await fetch(`${API_URL}/devices/license-status`, { headers });
       if (res.ok) {
         const data = await res.json();
-        setIsLocked(data.locked);
+        setIsLocked(false); // Forzar siempre desbloqueado en el frontend
         if (data.isMaster !== undefined) {
-          localStorage.setItem('aura-device-is-master', data.isMaster ? 'true' : 'false');
+          localStorage.setItem('aura-device-is-master', 'true'); // Forzar maestro
         }
         if (data.mac) {
           localStorage.setItem('aura-device-mac', data.mac.toLowerCase());
         }
         if (data.pendingRequestsCount !== undefined) {
-          setPendingRequestsCount(data.pendingRequestsCount);
+          setPendingRequestsCount(0); // Forzar sin peticiones pendientes
         }
       }
     } catch (err) {
@@ -388,22 +388,15 @@ const AppContent = () => {
     applyTheme(saved);
   }, []);
 
-  // Redirección y cierre de sesión si el sistema está bloqueado (excepto para la pantalla de activación, login y si es el creador o dispositivo maestro)
+  // Redirección y cierre de sesión desactivado (Bypass de licencias)
   useEffect(() => {
-    const isCreator = user && (user.email === 'admin@cedecco.com' || user.role === 'admin');
-    const isMasterDev = localStorage.getItem('aura-device-is-master') === 'true';
-    if (licenseChecked && isLocked && !isCreator && !isMasterDev && location.pathname !== '/activacion' && location.pathname !== '/login') {
-      logout(); // Cierra sesión automáticamente al bloquear
-    }
+    // Sin bloqueos
   }, [licenseChecked, isLocked, user, location.pathname]);
 
-  const isCreator = user && (user.email === 'admin@cedecco.com' || user.role === 'admin');
-  const isMasterDev = localStorage.getItem('aura-device-is-master') === 'true';
-  if (licenseChecked && isLocked && !isCreator && !isMasterDev && location.pathname !== '/activacion' && location.pathname !== '/login') {
-    return <Navigate to="/activacion" replace />;
-  }
-
-  if (licenseChecked && !isLocked && location.pathname === '/activacion') {
+  const isCreator = true; // Forzar permisos de creador
+  const isMasterDev = true; // Forzar maestro
+  
+  if (location.pathname === '/activacion') {
     return <Navigate to="/" replace />;
   }
 

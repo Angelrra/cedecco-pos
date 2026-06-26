@@ -317,18 +317,8 @@ export const resolveClientMac = async (req) => {
   return '';
 };
 
-// Middleware para bloquear la API si el sistema no está activado o el dispositivo fue dado de baja / no está registrado
+// Middleware para bloquear la API si el sistema no está activado o el dispositivo fue dado de baja / no está registrado (MODIFICADO: bypass de bloqueo, solo auditoría/registro en vivo)
 export const licenseMiddleware = async (req, res, next) => {
-  // Permitir omitir la validación de licencias y dispositivos en entornos de nube (Render/Vercel)
-  if (process.env.BYPASS_LICENSE === 'true') {
-    return next();
-  }
-
-  // Permitir peticiones OPTIONS (CORS Preflight) sin validar dispositivo
-  if (req.method === 'OPTIONS') {
-    return next();
-  }
-
   const path = req.path;
   
   // Excluir endpoints de verificación, activación e inicio de sesión
@@ -336,93 +326,79 @@ export const licenseMiddleware = async (req, res, next) => {
     return next();
   }
 
-  // Si el usuario está logueado como creador o administrador, permitir acceso completo (bypass de licencias y dispositivos)
-  try {
-    const authHeader = req.header('Authorization');
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.replace('Bearer ', '');
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'supersecretkeyforaurastockdevelopment2026');
-      const user = await User.findById(decoded.id);
-      if (user && (user.email === 'admin@cedecco.com' || user.role === 'admin')) {
-        return next();
-      }
-    }
-  } catch (err) {
-    // Si el token es inválido o expiró, simplemente sigue el flujo normal
-  }
-
-  // 1. Si la licencia global no está activa, colgar la conexión
-  if (!isSystemActivated()) {
-    return res.status(403).json({ locked: true, message: 'La licencia global del sistema no está activa.' });
-  }
-
-  // 2. Verificar si el dispositivo cliente específico ha sido dado de baja o no está registrado
+  // Verificar si el dispositivo cliente específico ha sido dado de baja o no está registrado, pero NUNCA bloquear.
   try {
     const cleanMac = await resolveClientMac(req);
+    const clientUserAgent = req.headers['user-agent'] || '';
 
-    if (!cleanMac) {
-      return res.status(403).json({ locked: true, message: 'No se detectó el identificador del equipo (MAC).' });
-    }
+    if (cleanMac) {
+      let clientIp = req.ip || req.socket.remoteAddress || '';
+      if (clientIp.startsWith('::ffff:')) {
+        clientIp = clientIp.substring(7);
+      }
 
-    let clientIp = req.ip || req.socket.remoteAddress || '';
-    if (clientIp.startsWith('::ffff:')) {
-      clientIp = clientIp.substring(7);
-    }
+      const clientDevice = await getClientDevice(clientIp, cleanMac);
+      if (clientDevice) {
+        // Decodificar el token para rastrear qué usuario activo está haciendo la petición
+        let loggedInUser = null;
+        try {
+          const authHeader = req.header('Authorization');
+          if (authHeader && authHeader.startsWith('Bearer ')) {
+            const token = authHeader.replace('Bearer ', '');
+            const decoded = jwt.verify(token, process.env.JWT_SECRET || 'supersecretkeyforaurastockdevelopment2026');
+            const user = await User.findById(decoded.id);
+            if (user) {
+              loggedInUser = user;
+            }
+          }
+        } catch (err) {
+          // Ignorar errores del token
+        }
 
-    const clientDevice = await getClientDevice(clientIp, cleanMac);
-    if (!clientDevice || !clientDevice.isAuthorized) {
-      return res.status(403).json({ locked: true, message: 'Este dispositivo no está autorizado para operar en el Punto de Venta.' });
-    }
+        // Actualizar IP, lastSeen, userAgent, activeUser y lastActive
+        let needsSave = false;
+        if (clientDevice.ip !== clientIp) {
+          clientDevice.ip = clientIp;
+          needsSave = true;
+        }
+        if (clientDevice.userAgent !== clientUserAgent) {
+          clientDevice.userAgent = clientUserAgent;
+          needsSave = true;
+        }
 
-    // Decodificar el token para rastrear qué usuario activo está haciendo la petición
-    let loggedInUser = null;
-    try {
-      const authHeader = req.header('Authorization');
-      if (authHeader && authHeader.startsWith('Bearer ')) {
-        const token = authHeader.replace('Bearer ', '');
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'supersecretkeyforaurastockdevelopment2026');
-        const user = await User.findById(decoded.id);
-        if (user) {
-          loggedInUser = user;
+        // Siempre forzar la autorización a true para remover bloqueos de forma permanente en la BD
+        if (clientDevice.isAuthorized === false) {
+          clientDevice.isAuthorized = true;
+          needsSave = true;
+        }
+
+        const newActiveUser = loggedInUser ? loggedInUser._id : null;
+        const now = new Date();
+        
+        // Comparar IDs de usuario de manera segura
+        const currentActiveUserId = clientDevice.activeUser ? clientDevice.activeUser.toString() : '';
+        const targetActiveUserId = newActiveUser ? newActiveUser.toString() : '';
+
+        if (
+          currentActiveUserId !== targetActiveUserId ||
+          !clientDevice.lastActive ||
+          (now - clientDevice.lastActive) > 5000
+        ) {
+          clientDevice.activeUser = newActiveUser;
+          clientDevice.lastActive = loggedInUser ? now : null;
+          needsSave = true;
+        }
+
+        clientDevice.lastSeen = now;
+        needsSave = true;
+
+        if (needsSave) {
+          await clientDevice.save();
         }
       }
-    } catch (err) {
-      // Ignorar errores del token
-    }
-
-    // Actualizar IP, lastSeen, activeUser y lastActive
-    let needsSave = false;
-    if (clientDevice.ip !== clientIp) {
-      clientDevice.ip = clientIp;
-      needsSave = true;
-    }
-
-    const newActiveUser = loggedInUser ? loggedInUser._id : null;
-    const now = new Date();
-    
-    // Comparar IDs de usuario de manera segura
-    const currentActiveUserId = clientDevice.activeUser ? clientDevice.activeUser.toString() : '';
-    const targetActiveUserId = newActiveUser ? newActiveUser.toString() : '';
-
-    if (
-      currentActiveUserId !== targetActiveUserId ||
-      !clientDevice.lastActive ||
-      (now - clientDevice.lastActive) > 5000
-    ) {
-      clientDevice.activeUser = newActiveUser;
-      clientDevice.lastActive = loggedInUser ? now : null;
-      needsSave = true;
-    }
-
-    clientDevice.lastSeen = now;
-    needsSave = true;
-
-    if (needsSave) {
-      await clientDevice.save();
     }
   } catch (err) {
-    console.error('Error al validar autorización de dispositivo:', err);
-    return res.status(500).json({ message: 'Error al validar autorización de dispositivo' });
+    console.error('Error al rastrear dispositivo en licenseMiddleware:', err);
   }
 
   next();

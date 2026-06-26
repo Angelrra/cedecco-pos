@@ -16,6 +16,15 @@ export const autoSeed = async () => {
       });
       await adminUser.save();
       
+      // Crear cuenta especializada para el dueño
+      const developerUser = new User({
+        name: 'Mark Cedecco',
+        email: 'mark@cedecco.com',
+        password: 'especial123',
+        role: 'admin'
+      });
+      await developerUser.save();
+      
       // Crear vendedor por defecto
       const sellerUser = new User({
         name: 'Vendedor Cedecco',

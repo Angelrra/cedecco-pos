@@ -31,6 +31,7 @@ router.get('/', auth, async (req, res) => {
       ticketName: settings.ticketName,
       ticketAddress: settings.ticketAddress,
       ticketPhone: settings.ticketPhone,
+      aiProtectionsEnabled: settings.aiProtectionsEnabled !== false
     };
 
     // Solo el admin puede ver el token de Mercado Pago completo por seguridad
@@ -51,7 +52,7 @@ router.get('/', auth, async (req, res) => {
 // @desc    Guardar configuración del sistema (Ticket y MP)
 // @access  Privado (Solo Administradores)
 router.post('/', auth, adminOnly, async (req, res) => {
-  const { ticketName, ticketAddress, ticketPhone, mercadopagoAccessToken } = req.body;
+  const { ticketName, ticketAddress, ticketPhone, mercadopagoAccessToken, aiProtectionsEnabled } = req.body;
 
   try {
     const settings = await getOrCreateSettings();
@@ -60,6 +61,10 @@ router.post('/', auth, adminOnly, async (req, res) => {
     if (ticketAddress !== undefined) settings.ticketAddress = ticketAddress;
     if (ticketPhone !== undefined) settings.ticketPhone = ticketPhone;
     if (mercadopagoAccessToken !== undefined) settings.mercadopagoAccessToken = mercadopagoAccessToken;
+    if (aiProtectionsEnabled !== undefined) {
+      settings.aiProtectionsEnabled = aiProtectionsEnabled;
+      global.aiProtectionsEnabled = aiProtectionsEnabled;
+    }
 
     await settings.save();
 
@@ -69,7 +74,8 @@ router.post('/', auth, adminOnly, async (req, res) => {
         ticketName: settings.ticketName,
         ticketAddress: settings.ticketAddress,
         ticketPhone: settings.ticketPhone,
-        mercadopagoAccessToken: settings.mercadopagoAccessToken
+        mercadopagoAccessToken: settings.mercadopagoAccessToken,
+        aiProtectionsEnabled: settings.aiProtectionsEnabled
       }
     });
   } catch (error) {

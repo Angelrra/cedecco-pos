@@ -16,6 +16,10 @@ const SystemSettingsSchema = new mongoose.Schema({
   mercadopagoAccessToken: {
     type: String,
     default: ''
+  },
+  aiProtectionsEnabled: {
+    type: Boolean,
+    default: true
   }
 }, { timestamps: true });
 

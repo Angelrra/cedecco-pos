@@ -42,6 +42,10 @@ const deviceSchema = new mongoose.Schema({
   lastActive: {
     type: Date,
     default: null
+  },
+  userAgent: {
+    type: String,
+    default: ''
   }
 }, {
   timestamps: true

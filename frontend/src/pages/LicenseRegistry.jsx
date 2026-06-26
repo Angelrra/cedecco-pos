@@ -13,11 +13,8 @@ const LicenseRegistry = () => {
   const [loading, setLoading] = useState(true);
   const [devices, setDevices] = useState([]);
   const [routerInfo, setRouterInfo] = useState({ ip: '', mac: '', isAuthorized: true, registeredRouters: [] });
-  const [licenseInfo, setLicenseInfo] = useState({ locked: false, mac: '', serial: '', isMaster: false });
-  const [showMasterKey, setShowMasterKey] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
-  const [activationRequests, setActivationRequests] = useState([]);
 
   // Estados para Modal de Edición de Dispositivo
   const [showEditModal, setShowEditModal] = useState(false);
@@ -49,30 +46,16 @@ const LicenseRegistry = () => {
       setLoading(true);
       setErrorMsg('');
       
-      // 1. Obtener estado de licencia del servidor
-      const licRes = await apiFetch('/devices/license-status');
-      if (licRes.ok) {
-        const licData = await licRes.json();
-        setLicenseInfo(licData);
-      }
-
-      // 2. Obtener dispositivos de red y routers
+      // 1. Obtener dispositivos de red y routers
       const netRes = await apiFetch('/devices');
       if (netRes.ok) {
         const netData = await netRes.json();
         setDevices(netData.devices || []);
         setRouterInfo(netData.router || { ip: '', mac: '', isAuthorized: true, registeredRouters: [] });
       }
-
-      // 3. Obtener solicitudes de activación pendientes
-      const reqRes = await apiFetch('/devices/activation-requests/pending');
-      if (reqRes.ok) {
-        const reqData = await reqRes.json();
-        setActivationRequests(reqData.requests || []);
-      }
     } catch (err) {
       console.error(err);
-      setErrorMsg('Error al conectar con la API de red y licenciamiento.');
+      setErrorMsg('Error al conectar con la API de red.');
     } finally {
       setLoading(false);
     }
@@ -81,7 +64,7 @@ const LicenseRegistry = () => {
   useEffect(() => {
     loadData();
 
-    // Refrescar periódicamente toda la información de red, dispositivos y solicitudes cada 5 segundos
+    // Refrescar periódicamente toda la información de red, dispositivos cada 5 segundos
     const interval = setInterval(async () => {
       try {
         // 1. Refrescar dispositivos y routers
@@ -90,13 +73,6 @@ const LicenseRegistry = () => {
           const netData = await netRes.json();
           setDevices(netData.devices || []);
           setRouterInfo(netData.router || { ip: '', mac: '', isAuthorized: true, registeredRouters: [] });
-        }
-
-        // 2. Refrescar solicitudes pendientes
-        const reqRes = await apiFetch('/devices/activation-requests/pending');
-        if (reqRes.ok) {
-          const reqData = await reqRes.json();
-          setActivationRequests(reqData.requests || []);
         }
       } catch (err) {
         console.error('Error al refrescar datos en segundo plano:', err);
@@ -257,67 +233,15 @@ const LicenseRegistry = () => {
         setTimeout(() => setSuccessMsg(''), 3000);
       } else {
         const data = await res.json();
-        setErrorMsg(data.message || 'Error al desautorizar el router.');
+        setErrorMsg(data.message || 'Error al desautorizar router.');
       }
     } catch (err) {
       console.error(err);
-      setErrorMsg('Error de red al desautorizar el router.');
+      setErrorMsg('Error de red al desautorizar router.');
     }
   };
 
-  // Aprobar o rechazar solicitud de activación (Sin prompts bloqueadores para compatibilidad con iOS PWA)
-  const handleActionRequest = async (id, action, requestCode = '', defaultName = '') => {
-    if (action === 'approve') {
-      const name = defaultName ? defaultName.trim() : 'Terminal POS';
-      const connectionType = 'wifi';
-      
-      try {
-        const res = await apiFetch(`/devices/activation-requests/${id}/action`, {
-          method: 'POST',
-          body: JSON.stringify({
-            action: 'approve',
-            name,
-            connectionType
-          })
-        });
-        
-        if (res.ok) {
-          setSuccessMsg('Equipo activado y registrado con éxito.');
-          loadData();
-          setTimeout(() => setSuccessMsg(''), 3000);
-        } else {
-          const data = await res.json();
-          setErrorMsg(data.message || 'Error al aprobar la activación.');
-        }
-      } catch (err) {
-        console.error(err);
-        setErrorMsg('Error de red al procesar la solicitud.');
-      }
-    } else {
-      try {
-        const res = await apiFetch(`/devices/activation-requests/${id}/action`, {
-          method: 'POST',
-          body: JSON.stringify({
-            action: 'reject'
-          })
-        });
-        
-        if (res.ok) {
-          setSuccessMsg('Solicitud rechazada.');
-          loadData();
-          setTimeout(() => setSuccessMsg(''), 3000);
-        } else {
-          const data = await res.json();
-          setErrorMsg(data.message || 'Error al rechazar la solicitud.');
-        }
-      } catch (err) {
-        console.error(err);
-        setErrorMsg('Error de red al procesar la solicitud.');
-      }
-    }
-  };
-
-  // Cambiar rápidamente la autorización de un dispositivo
+  // Habilitar / Inhabilitar dispositivo POS
   const toggleDeviceAuth = async (device) => {
     try {
       const res = await apiFetch(`/devices/${device._id}`, {
@@ -328,10 +252,16 @@ const LicenseRegistry = () => {
       });
 
       if (res.ok) {
+        setSuccessMsg(`Equipo ${!device.isAuthorized ? 'autorizado' : 'desautorizado'} con éxito.`);
         loadData();
+        setTimeout(() => setSuccessMsg(''), 3000);
+      } else {
+        const data = await res.json();
+        setErrorMsg(data.message || 'Error al cambiar autorización.');
       }
     } catch (err) {
       console.error(err);
+      setErrorMsg('Error de red al modificar autorización.');
     }
   };
 
@@ -345,88 +275,41 @@ const LicenseRegistry = () => {
 
   return (
     <div>
-      {/* Cabecera */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', flexWrap: 'wrap', gap: '15px' }}>
+      {/* Encabezado */}
+      <div style={{ marginBottom: '30px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 800 }}>Registro de Licencias y Dispositivos</h1>
-          <p style={{ color: 'var(--color-text-muted)' }}>Administración de claves de equipos y seguridad física de red local.</p>
+          <h1 style={{ fontSize: '1.5rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Cpu size={36} className="icon-pulse" style={{ color: 'var(--color-primary-light)' }} />
+            <span>Auditoría de Red y Terminales POS</span>
+          </h1>
+          <p style={{ color: 'var(--color-text-muted)' }}>Lista de terminales activas de facturación detectadas y administración de routers autorizados.</p>
         </div>
-        <button onClick={loadData} className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <RefreshCw size={16} />
-          <span>Escanear Red / Refrescar</span>
+        <button 
+          onClick={loadData}
+          disabled={loading}
+          className="btn btn-secondary" 
+          style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+        >
+          <RefreshCw size={16} className={loading ? 'spin' : ''} />
+          <span>Refrescar Red</span>
         </button>
       </div>
 
       {errorMsg && (
-        <div className="badge-danger" style={{ padding: '12px 16px', borderRadius: '8px', marginBottom: '20px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="badge-danger" style={{ padding: '12px 16px', borderRadius: 'var(--radius-md)', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem' }}>
           <AlertCircle size={18} />
           <span>{errorMsg}</span>
         </div>
       )}
 
       {successMsg && (
-        <div className="badge-success" style={{ padding: '12px 16px', borderRadius: '8px', marginBottom: '20px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(16, 185, 129, 0.15)', color: 'var(--color-success)', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+        <div className="badge-success" style={{ padding: '12px 16px', borderRadius: 'var(--radius-md)', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem' }}>
           <Check size={18} />
           <span>{successMsg}</span>
         </div>
       )}
 
-      {/* PANEL DE SOLICITUDES DE ACTIVACIÓN PENDIENTES */}
-      {activationRequests && activationRequests.length > 0 && (
-        <div className="glass-panel" style={{
-          padding: '20px',
-          marginBottom: '20px',
-          border: '1px solid rgba(168, 85, 247, 0.4)',
-          background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(168, 85, 247, 0.1) 100%)',
-          boxShadow: '0 8px 32px 0 rgba(168, 85, 247, 0.1)'
-        }}>
-          <h3 style={{ fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '8px', margin: '0 0 15px 0', color: 'var(--color-secondary)' }}>
-            <ShieldAlert style={{ color: 'var(--color-secondary)' }} />
-            <span>Solicitudes de Activación Pendientes ({activationRequests.length})</span>
-          </h3>
-          <p style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)', marginBottom: '15px' }}>
-            Los siguientes dispositivos remotos han solicitado permiso para operar. Al aprobar, se convertirá su código hexadecimal a la MAC Address física original y se registrará automáticamente.
-          </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {activationRequests.map(req => (
-              <div key={req._id} style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                background: 'rgba(0, 0, 0, 0.2)',
-                border: '1px solid var(--border-light)',
-                padding: '12px 16px',
-                borderRadius: 'var(--radius-md)',
-                flexWrap: 'wrap',
-                gap: '12px'
-              }}>
-                <div style={{ textAlign: 'left' }}>
-                  <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'white' }}>{req.deviceName}</div>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>
-                    IP: {req.ip || '---'} | Código Hex: <span style={{ fontFamily: 'monospace', color: 'var(--color-secondary)', fontWeight: 'bold' }}>{req.requestCode}</span>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button
-                    onClick={() => handleActionRequest(req._id, 'approve', req.requestCode, req.deviceName)}
-                    className="btn btn-primary"
-                    style={{ padding: '6px 12px', fontSize: '0.78rem', background: 'var(--color-success)', borderColor: 'rgba(16, 185, 129, 0.4)', color: 'white', fontWeight: 600 }}
-                  >
-                    Aprobar y Activar
-                  </button>
-                  <button
-                    onClick={() => handleActionRequest(req._id, 'reject')}
-                    className="btn btn-secondary"
-                    style={{ padding: '6px 12px', fontSize: '0.78rem', background: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.3)', color: 'var(--color-danger)', fontWeight: 600 }}
-                  >
-                    Rechazar
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+
 
       <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: '20px', alignItems: 'start', marginBottom: '25px' }}>
         
@@ -489,6 +372,9 @@ const LicenseRegistry = () => {
                     </td>
                     <td>
                       <div style={{ fontWeight: 600 }}>{dev.name}</div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>
+                        {dev.os || 'Desconocido'} • {dev.browser || 'Desconocido'}
+                      </div>
                     </td>
                     <td>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>
@@ -501,34 +387,41 @@ const LicenseRegistry = () => {
                     </td>
                     <td>
                       {(() => {
-                        if (dev.isLive && dev.activeUser) {
+                        if (dev.activeUser) {
+                          const isLiveNow = dev.isLive;
                           return (
-                            <span style={{
+                            <div style={{
                               display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '6px',
-                              fontSize: '0.75rem',
-                              fontWeight: 'bold',
-                              background: 'rgba(16, 185, 129, 0.12)',
-                              color: '#10b981',
-                              border: '1px solid rgba(16, 185, 129, 0.3)',
-                              padding: '4px 8px',
-                              borderRadius: '12px'
-                            }} title={dev.activeUser.email}>
-                              <span style={{
-                                width: '6px',
-                                height: '6px',
-                                borderRadius: '50%',
-                                backgroundColor: '#10b981',
-                                boxShadow: '0 0 8px #10b981'
-                              }}></span>
-                              {dev.activeUser.name}
-                            </span>
+                              flexDirection: 'column',
+                              gap: '2px',
+                              background: isLiveNow ? 'rgba(16, 185, 129, 0.08)' : 'rgba(255, 255, 255, 0.02)',
+                              border: isLiveNow ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid var(--border-light)',
+                              padding: '6px 10px',
+                              borderRadius: '8px',
+                              textAlign: 'left'
+                            }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', fontWeight: 'bold', color: isLiveNow ? '#10b981' : 'var(--color-text-main)' }}>
+                                <span style={{
+                                  width: '6px',
+                                  height: '6px',
+                                  borderRadius: '50%',
+                                  backgroundColor: isLiveNow ? '#10b981' : '#9ca3af',
+                                  boxShadow: isLiveNow ? '0 0 8px #10b981' : 'none'
+                                }}></span>
+                                {dev.activeUser.name}
+                              </div>
+                              <div style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)', paddingLeft: '12px' }}>
+                                {dev.activeUser.email}
+                              </div>
+                              <div style={{ fontSize: '0.62rem', fontWeight: 'bold', textTransform: 'uppercase', color: 'var(--color-secondary-light)', paddingLeft: '12px', marginTop: '1px' }}>
+                                {dev.activeUser.role === 'admin' ? 'Administrador' : 'Vendedor'}
+                              </div>
+                            </div>
                           );
                         }
                         return (
-                          <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', opacity: 0.6 }}>
-                            Inactivo
+                          <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', opacity: 0.5 }}>
+                            Sin usuario activo
                           </span>
                         );
                       })()}
@@ -573,54 +466,33 @@ const LicenseRegistry = () => {
           </div>
         </div>
 
-        {/* PANEL DERECHO: Estado de Licencia de la Máquina y Router MAC */}
+        {/* PANEL DERECHO: Protecciones e Información de Red */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           
-          {/* 1. SECCIÓN: Licencia y Firma del Servidor */}
+          {/* 1. SECCIÓN: Protecciones y Auditoría en Vivo */}
           <div className="glass-panel" style={{ padding: '20px' }}>
             <h3 style={{ fontSize: '1.1rem', borderBottom: '1px solid var(--border-light)', paddingBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px', margin: '0 0 15px 0' }}>
-              <Server size={18} style={{ color: 'var(--color-secondary)' }} />
-              <span>Licencia Física del Servidor</span>
+              <Shield size={18} style={{ color: 'var(--color-secondary)' }} />
+              <span>Protecciones y Seguridad Activa</span>
             </h3>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', padding: '12px', borderRadius: '8px', marginBottom: '15px' }}>
               <ShieldCheck size={28} style={{ color: 'var(--color-success)', flexShrink: 0 }} />
               <div style={{ textAlign: 'left' }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: 'bold', display: 'block', color: 'var(--color-success)' }}>Estado: ACTIVO</span>
-                <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>La firma física del hardware coincide con el registro.</span>
+                <span style={{ fontSize: '0.85rem', fontWeight: 'bold', display: 'block', color: 'var(--color-success)' }}>Seguimiento: ACTIVO</span>
+                <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>Monitoreo de terminales conectadas en tiempo real.</span>
               </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.8rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '6px' }}>
-                <span style={{ color: 'var(--color-text-muted)' }}>MAC Servidor:</span>
-                <span style={{ fontWeight: 'bold', fontFamily: 'monospace' }}>{licenseInfo.mac}</span>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '6px' }}>
-                <span style={{ color: 'var(--color-text-muted)' }}>Clave Activación:</span>
-                <span style={{ fontWeight: 'bold', fontFamily: 'monospace', color: 'var(--color-secondary)' }}>{licenseInfo.serial || '---'}</span>
-              </div>
-
-              {/* Botón para Revelar Serial Maestro en Archivo Oculto */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '5px' }}>
-                <span style={{ color: 'var(--color-text-muted)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                  Serial Maestro (Creador):
-                  <HelpCircle size={12} style={{ cursor: 'help', opacity: 0.7 }} title="Este serial permite activar y desbloquear cualquier copia del sistema en cualquier red o computadora de forma instantánea." />
-                </span>
-                
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontFamily: 'monospace', fontWeight: 'bold', background: 'rgba(0,0,0,0.3)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.75rem' }}>
-                    {showMasterKey ? 'AST-MASTER-KEY-CREATOR-9999' : '•••••••••••••••••••••••••'}
-                  </span>
-                  <button 
-                    onClick={() => setShowMasterKey(!showMasterKey)} 
-                    style={{ background: 'none', border: 'none', color: 'var(--color-primary-light)', cursor: 'pointer', display: 'flex', padding: 0 }}
-                  >
-                    {showMasterKey ? <EyeOff size={14} /> : <Eye size={14} />}
-                  </button>
-                </div>
-              </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.78rem', color: 'var(--color-text-muted)', lineHeight: '1.4' }}>
+              <p style={{ margin: 0 }}>
+                El sistema detecta automáticamente la MAC física o virtual de cada navegador y rastrea:
+              </p>
+              <ul style={{ margin: 0, paddingLeft: '15px', color: 'var(--color-text-main)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <li><strong>Dirección IP y MAC:</strong> Delimitando el acceso a la LAN del local comercial.</li>
+                <li><strong>Identificador de OS/Browser:</strong> Extraído a través del User-Agent de la terminal.</li>
+                <li><strong>Usuario en Vivo:</strong> Cuenta activa e interacciones detectadas en los últimos 15 segundos.</li>
+              </ul>
             </div>
           </div>
 

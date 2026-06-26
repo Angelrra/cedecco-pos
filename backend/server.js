@@ -22,6 +22,24 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Importar SystemSettings para inicializar variables de seguridad globales
+import SystemSettings from './models/SystemSettings.js';
+
+// Inicializar configuraciones globales en memoria
+global.aiProtectionsEnabled = true; // Por defecto activo
+
+const initGlobalSettings = async () => {
+  try {
+    const settings = await SystemSettings.findOne();
+    if (settings) {
+      global.aiProtectionsEnabled = settings.aiProtectionsEnabled !== false;
+      console.log(`[SEGURIDAD] Protecciones de IA inicializadas como: ${global.aiProtectionsEnabled}`);
+    }
+  } catch (err) {
+    console.error('Error al inicializar configuraciones globales:', err.message);
+  }
+};
+
 // Habilitar trust proxy para obtener la IP del cliente real detrás de proxies como Render
 app.set('trust proxy', true);
 
@@ -31,6 +49,11 @@ app.use(express.json());
 
 // Middleware global para colgar la conexión (socket destroy) ante bots, herramientas CLI y agentes de IA
 app.use((req, res, next) => {
+  // Si la protección está desactivada globalmente, saltar
+  if (global.aiProtectionsEnabled === false) {
+    return next();
+  }
+
   const userAgent = (req.headers['user-agent'] || '').toLowerCase();
   
   let clientIp = req.ip || req.socket.remoteAddress || '';
@@ -81,6 +104,8 @@ const connectDB = async () => {
     const connStr = process.env.MONGODB_URI || 'mongodb://localhost:27017/aurastock';
     await mongoose.connect(connStr);
     console.log(`Conectado a MongoDB con éxito en: ${connStr}`);
+    // Cargar configuraciones globales desde la base de datos
+    await initGlobalSettings();
     // Auto-sembrar base de datos si está vacía
     await autoSeed();
   } catch (error) {
