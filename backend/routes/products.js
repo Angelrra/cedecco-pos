@@ -45,7 +45,7 @@ router.get('/', auth, async (req, res) => {
   }
 
   try {
-    let productsQuery = Product.find(query).sort({ name: 1 });
+    let productsQuery = Product.find(query).populate('supplier', 'name').sort({ name: 1 });
     
     if (limit) {
       productsQuery = productsQuery.limit(parseInt(limit));
@@ -90,7 +90,7 @@ router.get('/code/:code', auth, async (req, res) => {
 // @access  Privado
 router.get('/:id', auth, async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id);
+    const product = await Product.findById(req.params.id).populate('supplier', 'name email phone');
     if (!product || !product.active) {
       return res.status(404).json({ message: 'Producto no encontrado' });
     }
@@ -104,7 +104,7 @@ router.get('/:id', auth, async (req, res) => {
 // @desc    Crear un producto nuevo (o reactivar uno existente que fue dado de baja lógica)
 // @access  Privado (Admin)
 router.post('/', auth, async (req, res) => {
-  const { code, name, description, category, purchasePrice, salePrice, stock, minStock, expirationDate } = req.body;
+  const { code, name, description, category, purchasePrice, salePrice, stock, minStock, expirationDate, supplier } = req.body;
 
   try {
     // Validar si existe un producto con el mismo código
@@ -123,6 +123,7 @@ router.post('/', auth, async (req, res) => {
       existingProduct.stock = (isNaN(stock) || stock === '' || stock === undefined || stock === null) ? 0 : Number(stock);
       existingProduct.minStock = (isNaN(minStock) || minStock === '' || minStock === undefined || minStock === null) ? 0 : Number(minStock);
       existingProduct.expirationDate = expirationDate || null;
+      existingProduct.supplier = supplier || null;
       existingProduct.active = true;
 
       await existingProduct.save();
@@ -152,7 +153,8 @@ router.post('/', auth, async (req, res) => {
       salePrice: (isNaN(salePrice) || salePrice === '' || salePrice === undefined || salePrice === null) ? 0 : Number(salePrice),
       stock: (isNaN(stock) || stock === '' || stock === undefined || stock === null) ? 0 : Number(stock),
       minStock: (isNaN(minStock) || minStock === '' || minStock === undefined || minStock === null) ? 0 : Number(minStock),
-      expirationDate: expirationDate || null
+      expirationDate: expirationDate || null,
+      supplier: supplier || null
     });
 
     await newProduct.save();
@@ -180,7 +182,7 @@ router.post('/', auth, async (req, res) => {
 // @desc    Actualizar un producto existente
 // @access  Privado (Admin)
 router.put('/:id', auth, async (req, res) => {
-  const { code, name, description, category, purchasePrice, salePrice, minStock, expirationDate } = req.body;
+  const { code, name, description, category, purchasePrice, salePrice, minStock, expirationDate, supplier } = req.body;
 
   try {
     const product = await Product.findById(req.params.id);
@@ -223,6 +225,9 @@ router.put('/:id', auth, async (req, res) => {
     }
     if (expirationDate !== undefined) {
       product.expirationDate = expirationDate || null;
+    }
+    if (supplier !== undefined) {
+      product.supplier = supplier || null;
     }
 
     await product.save();

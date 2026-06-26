@@ -14,6 +14,7 @@ import auditRoutes from './routes/audit.js';
 import mercadopagoRoutes from './routes/mercadopago.js';
 import settingsRoutes from './routes/settings.js';
 import devicesRoutes from './routes/devices.js';
+import supplierRoutes from './routes/suppliers.js';
 import { licenseMiddleware } from './middleware/license.js';
 
 // Cargar variables de entorno
@@ -129,6 +130,7 @@ app.use('/api/cash', cashRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/mercadopago', mercadopagoRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/suppliers', supplierRoutes);
 
 // Ruta de estado base
 app.get('/health', (req, res) => {

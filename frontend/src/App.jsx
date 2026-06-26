@@ -12,13 +12,14 @@ import AuditLogs from './pages/AuditLogs';
 import Configuracion from './pages/Configuracion';
 import Activation from './pages/Activation';
 import LicenseRegistry from './pages/LicenseRegistry';
+import Proveedores from './pages/Proveedores';
 import { getOrGenerateDeviceMac } from './utils/device';
 
 import {
   TrendingUp, ShoppingCart, Package, History,
   Users as UsersIcon, LogOut, Shield, Award,
   Key, FileText, Lock, Unlock, Settings, Sun, Moon,
-  ChevronLeft, ChevronRight, Menu, Cpu
+  ChevronLeft, ChevronRight, Menu, Cpu, Truck, DollarSign, RefreshCw
 } from 'lucide-react';
 import { applyTheme } from './utils/theme';
 
@@ -74,6 +75,40 @@ const SidebarLayout = ({ children }) => {
     return Number(localStorage.getItem('aura-theme-brightness') || '0');
   });
   const [isCollapsed, setIsCollapsed] = useState(true); // Inicialmente cerrado (oculto)
+  const [dolarBna, setDolarBna] = useState(() => {
+    try {
+      const cached = localStorage.getItem('dolar-bna-cotizacion');
+      if (cached) return JSON.parse(cached);
+    } catch (e) {}
+    return { compra: 1445, venta: 1495 }; // Default fallback
+  });
+  const [dolarLoading, setDolarLoading] = useState(false);
+
+  const fetchDolar = async () => {
+    try {
+      setDolarLoading(true);
+      const res = await fetch('https://dolarapi.com/v1/dolares/oficial');
+      if (res.ok) {
+        const data = await res.json();
+        const newRates = { compra: data.compra, venta: data.venta };
+        setDolarBna(newRates);
+        localStorage.setItem('dolar-bna-cotizacion', JSON.stringify(newRates));
+        localStorage.setItem('dolar-bna-last-fetch', Date.now().toString());
+      }
+    } catch (err) {
+      console.error('Error al obtener cotización del dólar BNA:', err);
+    } finally {
+      setDolarLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const lastFetch = localStorage.getItem('dolar-bna-last-fetch');
+    const cacheDuration = 15 * 60 * 1000; // 15 minutos
+    if (!lastFetch || (Date.now() - Number(lastFetch)) > cacheDuration) {
+      fetchDolar();
+    }
+  }, []);
 
   useEffect(() => {
     applyTheme(brightness);
@@ -84,6 +119,59 @@ const SidebarLayout = ({ children }) => {
   return (
     <div className="app-container" style={{ display: 'block', minHeight: '100vh', position: 'relative' }}>
       
+      {/* Cotización del Dólar BNA (Fijo arriba a la derecha, siempre presente) */}
+      <div
+        style={{
+          position: 'fixed',
+          top: '15px',
+          right: '15px',
+          zIndex: 1001,
+          background: 'var(--bg-card)',
+          backdropFilter: 'blur(12px)',
+          border: '1px solid var(--border-light)',
+          color: 'var(--color-text-main)',
+          padding: '8px 14px',
+          borderRadius: 'var(--radius-md)',
+          boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.37), var(--shadow-neon)',
+          fontSize: '0.8rem',
+          fontWeight: 'bold',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          fontFamily: 'var(--font-main)'
+        }}
+        title="Cotización oficial Dólar Banco Nación"
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <DollarSign size={13} style={{ color: 'var(--color-success)' }} />
+          <span style={{ textTransform: 'uppercase', fontSize: '0.65rem', color: 'var(--color-text-muted)', fontWeight: 800 }}>BNA:</span>
+        </div>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <span>C: <span style={{ color: '#10b981' }}>${dolarBna.compra.toFixed(2)}</span></span>
+          <span style={{ color: 'var(--border-light)' }}>|</span>
+          <span>V: <span style={{ color: '#06b6d4' }}>${dolarBna.venta.toFixed(2)}</span></span>
+        </div>
+        <button
+          onClick={fetchDolar}
+          disabled={dolarLoading}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: 'var(--color-text-muted)',
+            cursor: 'pointer',
+            padding: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            outline: 'none',
+            marginLeft: '4px'
+          }}
+          title="Refrescar cotización"
+        >
+          <RefreshCw size={12} className={dolarLoading ? 'spin' : ''} style={{ transition: 'all 0.3s' }} />
+        </button>
+      </div>
+
       {/* Botón de Menú (Siempre fijo arriba a la izquierda) */}
       <button
         onClick={() => setIsCollapsed(!isCollapsed)}
@@ -224,6 +312,11 @@ const SidebarLayout = ({ children }) => {
                   <Link to="/usuarios" className={`sidebar-link ${isActive('/usuarios') ? 'active' : ''}`} onClick={() => setIsCollapsed(true)}>
                     <UsersIcon size={18} />
                     <span>Personal</span>
+                  </Link>
+
+                  <Link to="/proveedores" className={`sidebar-link ${isActive('/proveedores') ? 'active' : ''}`} onClick={() => setIsCollapsed(true)}>
+                    <Truck size={18} />
+                    <span>Proveedores</span>
                   </Link>
 
                   {(user?.email === 'admin@cedecco.com' || user?.role === 'admin' || localStorage.getItem('aura-device-is-master') === 'true') && (
@@ -559,6 +652,17 @@ const AppContent = () => {
           <PrivateRoute adminOnly={true}>
             <SidebarLayout>
               <Users />
+            </SidebarLayout>
+          </PrivateRoute>
+        }
+      />
+
+      <Route
+        path="/proveedores"
+        element={
+          <PrivateRoute adminOnly={true}>
+            <SidebarLayout>
+              <Proveedores />
             </SidebarLayout>
           </PrivateRoute>
         }

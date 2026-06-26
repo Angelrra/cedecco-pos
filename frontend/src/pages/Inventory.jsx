@@ -31,6 +31,8 @@ const Inventory = () => {
   const [formMinStock, setFormMinStock] = useState('5');
   const [formExpirationDate, setFormExpirationDate] = useState('');
   const [formError, setFormError] = useState('');
+  const [suppliers, setSuppliers] = useState([]);
+  const [formSupplier, setFormSupplier] = useState('');
 
   // Estados para modal de Agregar Categoría
   const [customCategories, setCustomCategories] = useState([]);
@@ -492,6 +494,22 @@ const Inventory = () => {
     fetchCategories();
   }, [search, selectedCategory, filter]);
 
+  useEffect(() => {
+    fetchSuppliers();
+  }, []);
+
+  const fetchSuppliers = async () => {
+    try {
+      const res = await apiFetch('/suppliers');
+      if (res.ok) {
+        const data = await res.json();
+        setSuppliers(data);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const fetchProducts = async () => {
     try {
       setLoading(true);
@@ -537,6 +555,7 @@ const Inventory = () => {
     setFormStock('0');
     setFormMinStock('5');
     setFormExpirationDate('');
+    setFormSupplier('');
     setFormError('');
     setShowFormModal(true);
   };
@@ -568,6 +587,7 @@ const Inventory = () => {
       ? new Date(prod.expirationDate).toISOString().split('T')[0] 
       : '';
     setFormExpirationDate(dateStr);
+    setFormSupplier(prod.supplier?._id || prod.supplier || '');
     
     setFormError('');
     setShowFormModal(true);
@@ -630,7 +650,8 @@ const Inventory = () => {
       purchasePrice: parseFloat(formPurchasePrice) || 0,
       salePrice: parseFloat(formSalePrice) || 0,
       minStock: (formMinStock !== '' && formMinStock !== undefined && formMinStock !== null) ? parseInt(formMinStock) : 0,
-      expirationDate: formExpirationDate || null
+      expirationDate: formExpirationDate || null,
+      supplier: formSupplier || null
     };
 
     if (!editingProduct || formCode !== editingProduct.code) {
@@ -854,6 +875,7 @@ const Inventory = () => {
                   <th>Código</th>
                   <th>Nombre del Producto</th>
                   <th>Categoría</th>
+                  <th>Proveedor</th>
                   <th>Costo / Venta</th>
                   <th>Margen</th>
                   <th>Stock Actual</th>
@@ -880,6 +902,7 @@ const Inventory = () => {
                       <td style={{ fontFamily: 'monospace', color: 'var(--color-text-muted)' }}>{prod.code}</td>
                       <td style={{ fontWeight: 600 }}>{prod.name}</td>
                       <td>{prod.category}</td>
+                      <td>{prod.supplier?.name || <span style={{ color: 'var(--color-text-muted)' }}>---</span>}</td>
                       <td>
                         <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
                           ${prod.purchasePrice.toFixed(2)}
@@ -1024,15 +1047,32 @@ const Inventory = () => {
                 </div>
               </div>
 
-              <div className="input-group">
-                <label className="input-label">Nombre del Producto</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="Ej. Ibuprofeno 600mg"
-                  value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
-                />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                <div className="input-group">
+                  <label className="input-label">Nombre del Producto</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Ej. Ibuprofeno 600mg"
+                    value={formName}
+                    onChange={(e) => setFormName(e.target.value)}
+                  />
+                </div>
+
+                <div className="input-group">
+                  <label className="input-label">Proveedor</label>
+                  <select
+                    className="form-input"
+                    value={formSupplier}
+                    onChange={(e) => setFormSupplier(e.target.value)}
+                    style={{ background: 'var(--bg-main)' }}
+                  >
+                    <option value="">Ninguno / Sin Proveedor</option>
+                    {suppliers.map((sup) => (
+                      <option key={sup._id} value={sup._id}>{sup.name}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div className="input-group">
