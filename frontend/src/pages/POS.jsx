@@ -19,6 +19,11 @@ const POS = () => {
   const [changeGiven, setChangeGiven] = useState(0);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Estados para Clientes y Notas de venta
+  const [customers, setCustomers] = useState([]);
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [saleNote, setSaleNote] = useState('');
   const [quickQty, setQuickQty] = useState(1);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
@@ -527,6 +532,22 @@ const POS = () => {
     fetchPriceLists();
   }, []);
 
+  // Cargar clientes al montar
+  useEffect(() => {
+    const fetchCustomers = async () => {
+      try {
+        const res = await apiFetch('/customers');
+        if (res.ok) {
+          const data = await res.json();
+          setCustomers(data);
+        }
+      } catch (err) {
+        console.error('Error cargando clientes en POS:', err);
+      }
+    };
+    fetchCustomers();
+  }, []);
+
   // Calcular precio de un producto según la lista seleccionada
   const getProductPrice = (product, listIndex) => {
     const list = priceLists.find(l => l.index === listIndex);
@@ -811,7 +832,10 @@ const POS = () => {
       discount: parseFloat(discount) || 0,
       paymentMethod: 'mercadopago',
       cashReceived: total,
-      changeGiven: 0
+      changeGiven: 0,
+      customer: selectedCustomer ? selectedCustomer._id : null,
+      note: saleNote,
+      priceListIndex: selectedListIndex
     };
 
     try {
@@ -835,6 +859,8 @@ const POS = () => {
       setDiscount(0);
       setCashReceived('');
       setChangeGiven(0);
+      setSelectedCustomer(null);
+      setSaleNote('');
       setShowMPModal(false);
       setMpReference('');
       setMpQRData('');
@@ -893,7 +919,10 @@ const POS = () => {
       discount: parseFloat(discount) || 0,
       paymentMethod,
       cashReceived: paymentMethod === 'efectivo' ? cash : total,
-      changeGiven: paymentMethod === 'efectivo' ? (cash >= total ? cash - total : 0) : 0
+      changeGiven: paymentMethod === 'efectivo' ? (cash >= total ? cash - total : 0) : 0,
+      customer: selectedCustomer ? selectedCustomer._id : null,
+      note: saleNote,
+      priceListIndex: selectedListIndex
     };
 
     try {
@@ -917,6 +946,8 @@ const POS = () => {
       setDiscount(0);
       setCashReceived('');
       setChangeGiven(0);
+      setSelectedCustomer(null);
+      setSaleNote('');
       searchProducts(); // Refrescar lista stock
     } catch (err) {
       setErrorMsg(err.message || 'Ocurrió un error al procesar el pago.');
@@ -1500,6 +1531,46 @@ const POS = () => {
               </div>
             </div>
 
+            {/* Cliente y Nota de la Venta */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              <div className="input-group" style={{ marginBottom: 0 }}>
+                <label className="input-label" style={{ fontSize: '0.72rem' }}>Cliente</label>
+                <select
+                  className="form-input"
+                  value={selectedCustomer ? selectedCustomer._id : ''}
+                  onChange={(e) => {
+                    const custId = e.target.value;
+                    const found = customers.find(c => c._id === custId);
+                    setSelectedCustomer(found || null);
+                    if (found && found.defaultPriceListIndex) {
+                      setSelectedListIndex(found.defaultPriceListIndex);
+                      localStorage.setItem('pos-selected-price-list', String(found.defaultPriceListIndex));
+                    }
+                  }}
+                  style={{ padding: '6px 10px', fontSize: '0.85rem', background: 'var(--bg-main)', width: '100%' }}
+                >
+                  <option value="">-- Consumidor Final --</option>
+                  {customers.map(c => (
+                    <option key={c._id} value={c._id}>
+                      {c.name} {c.cuit ? `(CUIT: ${c.cuit})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="input-group" style={{ marginBottom: 0 }}>
+                <label className="input-label" style={{ fontSize: '0.72rem' }}>Nota de Venta</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Observaciones..."
+                  value={saleNote}
+                  onChange={(e) => setSaleNote(e.target.value)}
+                  style={{ padding: '6px 10px', fontSize: '0.85rem' }}
+                />
+              </div>
+            </div>
+
             {paymentMethod === 'efectivo' && (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', padding: '10px', background: 'rgba(0,0,0,0.15)', borderRadius: 'var(--radius-md)', border: '1px dashed var(--border-light)' }}>
                 <div className="input-group" style={{ marginBottom: 0 }}>
@@ -1650,6 +1721,18 @@ const POS = () => {
                 <span>Método Pago:</span>
                 <span style={{ textTransform: 'capitalize', fontWeight: 600 }}>{completedSale.paymentMethod}</span>
               </div>
+              {completedSale.customer && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dotted #e5e7eb', paddingTop: '4px', marginTop: '4px' }}>
+                  <span>Cliente:</span>
+                  <span style={{ fontWeight: 600 }}>{completedSale.customer.name}</span>
+                </div>
+              )}
+              {completedSale.note && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', borderTop: '1px dotted #e5e7eb', paddingTop: '4px', marginTop: '4px' }}>
+                  <span style={{ color: '#6b7280' }}>Nota:</span>
+                  <span style={{ fontStyle: 'italic', color: '#4b5563' }}>{completedSale.note}</span>
+                </div>
+              )}
             </div>
 
             {/* Tabla de artículos */}

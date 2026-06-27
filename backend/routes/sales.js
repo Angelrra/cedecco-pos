@@ -5,6 +5,7 @@ import Product from '../models/Product.js';
 import StockLog from '../models/StockLog.js';
 import CashSession from '../models/CashSession.js';
 import { auth } from '../middleware/auth.js';
+import PriceList from '../models/PriceList.js';
 
 const router = express.Router();
 
@@ -12,7 +13,7 @@ const router = express.Router();
 // @desc    Crear una nueva venta en el punto de venta
 // @access  Privado (Admin y Vendedor)
 router.post('/', auth, async (req, res) => {
-  const { items, discount, paymentMethod, cashReceived, changeGiven } = req.body;
+  const { items, discount, paymentMethod, cashReceived, changeGiven, customer, note, priceListIndex } = req.body;
 
   if (!items || items.length === 0) {
     return res.status(400).json({ message: 'La venta debe contener al menos un producto' });
@@ -24,6 +25,11 @@ router.post('/', auth, async (req, res) => {
     if (!activeSession) {
       return res.status(400).json({ message: 'Operación denegada: Debes abrir la caja registradora antes de realizar ventas.' });
     }
+
+    // Buscar listas de precios configuradas
+    const lists = await PriceList.find().sort({ index: 1 });
+    const targetListIndex = priceListIndex ? parseInt(priceListIndex) : 1;
+    const listConfig = lists.find(l => l.index === targetListIndex);
 
     // 1. Validar todos los productos en stock y fecha de vencimiento
     const preparedItems = [];
@@ -43,14 +49,21 @@ router.post('/', auth, async (req, res) => {
 
       // Alerta si el producto está vencido (consumible)
       if (product.expirationDate && product.expirationDate < new Date()) {
-        // Permitimos la venta pero informamos en logs o retornamos aviso si lo requiere, 
-        // para consumibles lo ideal es advertir o bloquear. Bloquearemos para mayor seguridad de salud.
         return res.status(400).json({
           message: `El producto ${product.name} está VENCIDO (Fecha de vencimiento: ${product.expirationDate.toLocaleDateString()}). Venta rechazada.`
         });
       }
 
-      const itemSubtotal = product.salePrice * item.quantity;
+      // Calcular precio según la lista
+      let resolvedSalePrice = product.salePrice;
+      const custom = product.customPrices ? product.customPrices.find(cp => cp.listIndex === targetListIndex) : null;
+      if (custom && custom.useCustom) {
+        resolvedSalePrice = custom.price;
+      } else if (listConfig && product.purchasePrice > 0) {
+        resolvedSalePrice = Math.round(product.purchasePrice * (1 + listConfig.markup / 100) * 100) / 100;
+      }
+
+      const itemSubtotal = resolvedSalePrice * item.quantity;
       subtotal += itemSubtotal;
 
       preparedItems.push({
@@ -59,7 +72,7 @@ router.post('/', auth, async (req, res) => {
         code: product.code,
         quantity: item.quantity,
         purchasePrice: product.purchasePrice,
-        salePrice: product.salePrice
+        salePrice: resolvedSalePrice
       });
     }
 
@@ -96,7 +109,10 @@ router.post('/', auth, async (req, res) => {
       total,
       paymentMethod: paymentMethod || 'efectivo',
       cashReceived: parseFloat(cashReceived) || 0,
-      changeGiven: parseFloat(changeGiven) || 0
+      changeGiven: parseFloat(changeGiven) || 0,
+      customer: customer || null,
+      note: note || '',
+      priceListIndex: targetListIndex
     });
 
     await newSale.save();
@@ -107,8 +123,10 @@ router.post('/', auth, async (req, res) => {
       await activeSession.save();
     }
 
-    // Actualizar la venta para poder devolver los datos poblados del vendedor
-    const populatedSale = await Sale.findById(newSale._id).populate('user', 'name email');
+    // Actualizar la venta para poder devolver los datos de vendedor y cliente
+    const populatedSale = await Sale.findById(newSale._id)
+      .populate('user', 'name email')
+      .populate('customer', 'name email phone cuit');
 
     res.status(201).json({
       message: 'Venta registrada con éxito',
@@ -153,6 +171,7 @@ router.get('/', auth, async (req, res) => {
   try {
     const sales = await Sale.find(query)
       .populate('user', 'name email')
+      .populate('customer', 'name email phone cuit')
       .sort({ createdAt: -1 });
     res.json(sales);
   } catch (error) {
@@ -167,6 +186,7 @@ router.get('/:id', auth, async (req, res) => {
   try {
     const sale = await Sale.findById(req.params.id)
       .populate('user', 'name email')
+      .populate('customer', 'name email phone cuit')
       .populate('items.product', 'name code category');
 
     if (!sale) {

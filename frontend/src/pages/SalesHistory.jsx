@@ -214,10 +214,22 @@ const SalesHistory = () => {
                 <span>Vendedor:</span>
                 <span>{selectedSale.user?.name || 'Sistema'}</span>
               </div>
-              <div style={{ display: 'flex', justify: 'space-between' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span>Método Pago:</span>
                 <span style={{ textTransform: 'capitalize', fontWeight: 600 }}>{selectedSale.paymentMethod}</span>
               </div>
+              {selectedSale.customer && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dotted #e5e7eb', paddingTop: '4px', marginTop: '4px' }}>
+                  <span>Cliente:</span>
+                  <span style={{ fontWeight: 600 }}>{selectedSale.customer.name}</span>
+                </div>
+              )}
+              {selectedSale.note && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', borderTop: '1px dotted #e5e7eb', paddingTop: '4px', marginTop: '4px' }}>
+                  <span style={{ color: '#6b7280' }}>Nota:</span>
+                  <span style={{ fontStyle: 'italic', color: '#4b5563' }}>{selectedSale.note}</span>
+                </div>
+              )}
             </div>
 
             {/* Lista artículos */}

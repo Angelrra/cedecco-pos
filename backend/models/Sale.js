@@ -37,6 +37,21 @@ const saleSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  customer: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Customer',
+    default: null
+  },
+  note: {
+    type: String,
+    default: ''
+  },
+  priceListIndex: {
+    type: Number,
+    min: 1,
+    max: 6,
+    default: 1
+  },
   items: [saleItemSchema],
   subtotal: {
     type: Number,

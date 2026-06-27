@@ -14,13 +14,15 @@ import Activation from './pages/Activation';
 import LicenseRegistry from './pages/LicenseRegistry';
 import Proveedores from './pages/Proveedores';
 import ListasDePrecios from './pages/ListasDePrecios';
+import Clientes from './pages/Clientes';
+import OrdenesCompra from './pages/OrdenesCompra';
 import { getOrGenerateDeviceMac } from './utils/device';
 
 import {
   TrendingUp, ShoppingCart, Package, History,
   Users as UsersIcon, LogOut, Shield, Award,
   Key, FileText, Lock, Unlock, Settings, Sun, Moon,
-  ChevronLeft, ChevronRight, Menu, Cpu, Truck, DollarSign, RefreshCw, Tag
+  ChevronLeft, ChevronRight, Menu, Cpu, Truck, DollarSign, RefreshCw, Tag, ClipboardList
 } from 'lucide-react';
 import { applyTheme } from './utils/theme';
 
@@ -323,6 +325,16 @@ const SidebarLayout = ({ children }) => {
                   <Link to="/listas-precios" className={`sidebar-link ${isActive('/listas-precios') ? 'active' : ''}`} onClick={() => setIsCollapsed(true)}>
                     <Tag size={18} />
                     <span>Listas de Precios</span>
+                  </Link>
+
+                  <Link to="/clientes" className={`sidebar-link ${isActive('/clientes') ? 'active' : ''}`} onClick={() => setIsCollapsed(true)}>
+                    <UsersIcon size={18} />
+                    <span>Clientes</span>
+                  </Link>
+
+                  <Link to="/ordenes-compra" className={`sidebar-link ${isActive('/ordenes-compra') ? 'active' : ''}`} onClick={() => setIsCollapsed(true)}>
+                    <ClipboardList size={18} />
+                    <span>Órdenes de Compra</span>
                   </Link>
 
                   {(user?.email === 'admin@cedecco.com' || user?.role === 'admin' || localStorage.getItem('aura-device-is-master') === 'true') && (
@@ -680,6 +692,28 @@ const AppContent = () => {
           <PrivateRoute adminOnly={true}>
             <SidebarLayout>
               <ListasDePrecios />
+            </SidebarLayout>
+          </PrivateRoute>
+        }
+      />
+
+      <Route
+        path="/clientes"
+        element={
+          <PrivateRoute adminOnly={true}>
+            <SidebarLayout>
+              <Clientes />
+            </SidebarLayout>
+          </PrivateRoute>
+        }
+      />
+
+      <Route
+        path="/ordenes-compra"
+        element={
+          <PrivateRoute adminOnly={true}>
+            <SidebarLayout>
+              <OrdenesCompra />
             </SidebarLayout>
           </PrivateRoute>
         }

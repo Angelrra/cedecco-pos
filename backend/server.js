@@ -16,6 +16,8 @@ import settingsRoutes from './routes/settings.js';
 import devicesRoutes from './routes/devices.js';
 import supplierRoutes from './routes/suppliers.js';
 import priceListRoutes from './routes/pricelists.js';
+import customerRoutes from './routes/customers.js';
+import purchaseOrderRoutes from './routes/purchaseorders.js';
 import { licenseMiddleware } from './middleware/license.js';
 
 // Cargar variables de entorno
@@ -133,6 +135,8 @@ app.use('/api/mercadopago', mercadopagoRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/suppliers', supplierRoutes);
 app.use('/api/pricelists', priceListRoutes);
+app.use('/api/customers', customerRoutes);
+app.use('/api/purchaseorders', purchaseOrderRoutes);
 
 // Ruta de estado base
 app.get('/health', (req, res) => {
