@@ -13,13 +13,14 @@ import Configuracion from './pages/Configuracion';
 import Activation from './pages/Activation';
 import LicenseRegistry from './pages/LicenseRegistry';
 import Proveedores from './pages/Proveedores';
+import ListasDePrecios from './pages/ListasDePrecios';
 import { getOrGenerateDeviceMac } from './utils/device';
 
 import {
   TrendingUp, ShoppingCart, Package, History,
   Users as UsersIcon, LogOut, Shield, Award,
   Key, FileText, Lock, Unlock, Settings, Sun, Moon,
-  ChevronLeft, ChevronRight, Menu, Cpu, Truck, DollarSign, RefreshCw
+  ChevronLeft, ChevronRight, Menu, Cpu, Truck, DollarSign, RefreshCw, Tag
 } from 'lucide-react';
 import { applyTheme } from './utils/theme';
 
@@ -317,6 +318,11 @@ const SidebarLayout = ({ children }) => {
                   <Link to="/proveedores" className={`sidebar-link ${isActive('/proveedores') ? 'active' : ''}`} onClick={() => setIsCollapsed(true)}>
                     <Truck size={18} />
                     <span>Proveedores</span>
+                  </Link>
+
+                  <Link to="/listas-precios" className={`sidebar-link ${isActive('/listas-precios') ? 'active' : ''}`} onClick={() => setIsCollapsed(true)}>
+                    <Tag size={18} />
+                    <span>Listas de Precios</span>
                   </Link>
 
                   {(user?.email === 'admin@cedecco.com' || user?.role === 'admin' || localStorage.getItem('aura-device-is-master') === 'true') && (
@@ -663,6 +669,17 @@ const AppContent = () => {
           <PrivateRoute adminOnly={true}>
             <SidebarLayout>
               <Proveedores />
+            </SidebarLayout>
+          </PrivateRoute>
+        }
+      />
+
+      <Route
+        path="/listas-precios"
+        element={
+          <PrivateRoute adminOnly={true}>
+            <SidebarLayout>
+              <ListasDePrecios />
             </SidebarLayout>
           </PrivateRoute>
         }

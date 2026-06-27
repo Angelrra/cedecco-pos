@@ -62,6 +62,16 @@ const productSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Supplier',
     default: null
+  },
+  // Precios personalizados por lista (override del markup global)
+  // Cada entrada: { listIndex: 1-6, price: Number, useCustom: Boolean }
+  customPrices: {
+    type: [{
+      listIndex: { type: Number, min: 1, max: 6, required: true },
+      price: { type: Number, min: 0, default: 0 },
+      useCustom: { type: Boolean, default: false } // si es false, usa markup global
+    }],
+    default: []
   }
 }, {
   timestamps: true
