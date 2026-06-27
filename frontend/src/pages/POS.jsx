@@ -23,6 +23,12 @@ const POS = () => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
 
+  // Listas de precios
+  const [priceLists, setPriceLists] = useState([]);
+  const [selectedListIndex, setSelectedListIndex] = useState(() => {
+    return parseInt(localStorage.getItem('pos-selected-price-list') || '1');
+  });
+
   // Estados de Categorías de Producto
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -505,6 +511,38 @@ const POS = () => {
     fetchCategories();
   }, []);
 
+  // Cargar listas de precios al montar
+  useEffect(() => {
+    const fetchPriceLists = async () => {
+      try {
+        const res = await apiFetch('/pricelists');
+        if (res.ok) {
+          const data = await res.json();
+          setPriceLists(data);
+        }
+      } catch (err) {
+        console.error('Error cargando listas de precios:', err);
+      }
+    };
+    fetchPriceLists();
+  }, []);
+
+  // Calcular precio de un producto según la lista seleccionada
+  const getProductPrice = (product, listIndex) => {
+    const list = priceLists.find(l => l.index === listIndex);
+    // Buscar precio personalizado para esta lista
+    if (product.customPrices && product.customPrices.length > 0) {
+      const custom = product.customPrices.find(cp => cp.listIndex === listIndex && cp.useCustom);
+      if (custom) return custom.price;
+    }
+    // Calcular con markup global si hay costo
+    if (list && product.purchasePrice > 0) {
+      return Math.round(product.purchasePrice * (1 + list.markup / 100) * 100) / 100;
+    }
+    // Fallback al precio de venta original
+    return product.salePrice;
+  };
+
   // Cargar productos al iniciar y cuando cambia searchQuery o la categoría seleccionada
   useEffect(() => {
     const delayDebounce = setTimeout(() => {
@@ -554,7 +592,8 @@ const POS = () => {
   };
 
   const handleSearchKeyDown = (e) => {
-    if (e.key === '+') {
+    // '+' solo sube cantidad si la búsqueda está vacía; si hay texto, lo permite como separador
+    if (e.key === '+' && searchQuery.trim() === '') {
       e.preventDefault();
       setQuickQty(prev => prev + 1);
     } else if (e.key === '-') {
@@ -638,11 +677,13 @@ const POS = () => {
       return;
     }
 
+    // Precio según la lista seleccionada
+    const resolvedPrice = getProductPrice(product, selectedListIndex);
+
     setCart(prevCart => {
       const existingItem = prevCart.find(item => item._id === product._id);
       if (existingItem) {
         const newQty = existingItem.quantity + qty;
-        // Validar límite de stock
         if (newQty > product.stock) {
           setErrorMsg(`No puedes agregar más de ${product.stock} unidades de ${product.name} (stock disponible completo). Intentaste agregar ${newQty}.`);
           return prevCart;
@@ -655,7 +696,8 @@ const POS = () => {
           setErrorMsg(`No puedes agregar más de ${product.stock} unidades de ${product.name} (stock disponible completo). Intentaste agregar ${qty}.`);
           return prevCart;
         }
-        return [...prevCart, { ...product, quantity: qty }];
+        // Guardar el precio de lista al momento de agregar
+        return [...prevCart, { ...product, salePrice: resolvedPrice, priceListIndex: selectedListIndex, quantity: qty }];
       }
     });
   };
@@ -995,6 +1037,48 @@ const POS = () => {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', position: 'relative' }}>
               
+              {/* Selector de Lista de Precios */}
+              {priceLists.length > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0 }}>
+                    Lista de precios:
+                  </span>
+                  <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                    {priceLists.map(list => (
+                      <button
+                        key={list.index}
+                        type="button"
+                        onClick={() => {
+                          setSelectedListIndex(list.index);
+                          localStorage.setItem('pos-selected-price-list', String(list.index));
+                        }}
+                        title={`${list.name} (+${list.markup}%)`}
+                        style={{
+                          padding: '4px 10px',
+                          borderRadius: '20px',
+                          border: `1.5px solid ${selectedListIndex === list.index ? list.color : 'var(--border-light)'}`,
+                          background: selectedListIndex === list.index ? `${list.color}22` : 'transparent',
+                          color: selectedListIndex === list.index ? list.color : 'var(--color-text-muted)',
+                          cursor: 'pointer',
+                          fontSize: '0.75rem',
+                          fontWeight: selectedListIndex === list.index ? 700 : 500,
+                          transition: 'all 0.18s',
+                          whiteSpace: 'nowrap',
+                          boxShadow: selectedListIndex === list.index ? `0 0 8px ${list.color}44` : 'none'
+                        }}
+                      >
+                        L{list.index} · +{list.markup}%
+                      </button>
+                    ))}
+                  </div>
+                  {priceLists.find(l => l.index === selectedListIndex) && (
+                    <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
+                      — {priceLists.find(l => l.index === selectedListIndex)?.name}
+                    </span>
+                  )}
+                </div>
+              )}
+
               {/* Contenedor del Input (100% de Ancho) */}
               <div style={{ position: 'relative', width: '100%' }}>
                 <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }}>
@@ -1004,7 +1088,7 @@ const POS = () => {
                   ref={searchInputRef}
                   type="text"
                   className="form-input"
-                  placeholder="Busca por código de barras o nombre del producto..."
+                  placeholder="Buscar: código, nombre o teclado+inal (multi-palabra con +)..."
                   value={searchQuery}
                   onChange={(e) => {
                     setSearchQuery(e.target.value);

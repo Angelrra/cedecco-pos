@@ -12,13 +12,34 @@ router.get('/', auth, async (req, res) => {
   const { search, category, filter, limit } = req.query;
   let query = { active: true };
 
-  // Filtro por búsqueda de texto (nombre o código)
+  // Filtro por búsqueda de texto inteligente
+  // Si la búsqueda contiene '+' o ',' se divide en tokens y se busca que el nombre/código contenga TODOS
+  // Ejemplo: "teclado+inalam" → busca productos que tengan "teclado" Y "inalam" en nombre o código
   if (search) {
-    const cleanSearch = search.trim().replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-    query.$or = [
-      { name: { $regex: cleanSearch, $options: 'i' } },
-      { code: { $regex: cleanSearch, $options: 'i' } }
-    ];
+    const raw = search.trim();
+    const tokens = raw.split(/[+,]/).map(t => t.trim()).filter(Boolean);
+
+    if (tokens.length > 1) {
+      // Búsqueda AND: cada token debe aparecer en nombre o código
+      query.$and = tokens.map(token => {
+        const escaped = token.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+        return {
+          $or: [
+            { name: { $regex: escaped, $options: 'i' } },
+            { code: { $regex: escaped, $options: 'i' } },
+            { description: { $regex: escaped, $options: 'i' } }
+          ]
+        };
+      });
+    } else {
+      // Búsqueda simple de un solo token
+      const cleanSearch = raw.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+      query.$or = [
+        { name: { $regex: cleanSearch, $options: 'i' } },
+        { code: { $regex: cleanSearch, $options: 'i' } },
+        { description: { $regex: cleanSearch, $options: 'i' } }
+      ];
+    }
   }
 
   // Filtro por categoría
