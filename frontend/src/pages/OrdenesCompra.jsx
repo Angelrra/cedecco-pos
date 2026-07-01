@@ -112,7 +112,10 @@ const OrdenesCompra = () => {
         name: item.name,
         code: item.code,
         quantityOrdered: item.quantityOrdered,
-        unitCost: item.unitCost
+        unitCost: item.unitCost,
+        iva: item.iva !== undefined ? item.iva : 21,
+        impuestoInterno: item.impuestoInterno || 0,
+        impuestoInternoTipo: item.impuestoInternoTipo || 'porcentaje'
       })));
     } else {
       setEditingId(null);
@@ -155,7 +158,10 @@ const OrdenesCompra = () => {
           name: selectedProductToAdd.name,
           code: selectedProductToAdd.code,
           quantityOrdered: parseInt(addQty) || 1,
-          unitCost: parseFloat(addCost) || 0
+          unitCost: parseFloat(addCost) || 0,
+          iva: selectedProductToAdd.iva !== undefined ? selectedProductToAdd.iva : 21,
+          impuestoInterno: selectedProductToAdd.impuestoInterno || 0,
+          impuestoInternoTipo: selectedProductToAdd.impuestoInternoTipo || 'porcentaje'
         }
       ]);
     }
@@ -774,12 +780,13 @@ const OrdenesCompra = () => {
                     <thead>
                       <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid var(--border-light)' }}>
                         <th style={{ padding: '8px 12px', textAlign: 'left' }}>Producto</th>
-                        <th style={{ padding: '8px 12px', textAlign: 'center', width: '90px' }}>Cant. Pedida</th>
-                        <th style={{ padding: '8px 12px', textAlign: 'right', width: '110px' }}>Costo (USD)</th>
-                        <th style={{ padding: '8px 12px', textAlign: 'right', width: '110px', color: 'black', fontStyle: 'italic' }}>Costo (ARS)</th>
-                        <th style={{ padding: '8px 12px', textAlign: 'right', width: '110px' }}>Subtotal (USD)</th>
-                        <th style={{ padding: '8px 12px', textAlign: 'right', width: '110px', color: 'black', fontStyle: 'italic' }}>Subtotal (ARS)</th>
-                        <th style={{ padding: '8px 12px', textAlign: 'center', width: '50px' }}></th>
+                        <th style={{ padding: '8px 12px', textAlign: 'center', width: '70px' }}>Cant.</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'right', width: '90px' }}>Neto (USD)</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'right', width: '90px', color: 'black', fontStyle: 'italic' }}>Neto (ARS)</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'right', width: '90px' }}>Impuestos</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'right', width: '90px' }}>Total (USD)</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'right', width: '90px', color: 'black', fontStyle: 'italic' }}>Total (ARS)</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'center', width: '40px' }}></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -790,104 +797,120 @@ const OrdenesCompra = () => {
                           </td>
                         </tr>
                       ) : (
-                        poItems.map((item, idx) => (
-                          <tr key={idx} style={{ borderBottom: '1px solid var(--border-light)' }}>
-                            <td style={{ padding: '8px 12px' }}>
-                              <div style={{ fontWeight: 600 }}>{item.name}</div>
-                              <div style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)' }}>{item.code}</div>
-                            </td>
-                            <td style={{ padding: '8px 12px', textAlign: 'center' }}>
-                              <input
-                                type="number"
-                                min="1"
-                                value={item.quantityOrdered}
-                                onChange={(e) => {
-                                  const val = Math.max(1, parseInt(e.target.value) || 1);
-                                  const updated = [...poItems];
-                                  updated[idx].quantityOrdered = val;
-                                  setPoItems(updated);
-                                }}
-                                style={{
-                                  background: 'rgba(255,255,255,0.02)',
-                                  border: '1px solid var(--border-light)',
-                                  borderRadius: '4px',
-                                  color: 'inherit',
-                                  width: '70px',
-                                  textAlign: 'center',
-                                  padding: '4px'
-                                }}
-                              />
-                            </td>
-                            <td style={{ padding: '8px 12px', textAlign: 'right' }}>
-                              <input
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                value={item.unitCost}
-                                onChange={(e) => {
-                                  const val = Math.max(0, parseFloat(e.target.value) || 0);
-                                  const updated = [...poItems];
-                                  updated[idx].unitCost = val;
-                                  setPoItems(updated);
-                                }}
-                                style={{
-                                  background: 'rgba(255,255,255,0.02)',
-                                  border: '1px solid var(--border-light)',
-                                  borderRadius: '4px',
-                                  color: 'inherit',
-                                  width: '90px',
-                                  textAlign: 'right',
-                                  padding: '4px'
-                                }}
-                              />
-                            </td>
-                            <td style={{ padding: '8px 12px', textAlign: 'right', color: 'black', fontStyle: 'italic', fontWeight: 600 }}>
-                              ${((parseFloat(exchangeRate) || 0) * item.unitCost).toFixed(2)}
-                            </td>
-                            <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 600 }}>
-                              ${(item.quantityOrdered * item.unitCost).toFixed(2)}
-                            </td>
-                            <td style={{ padding: '8px 12px', textAlign: 'right', color: 'black', fontStyle: 'italic', fontWeight: 600 }}>
-                              ${(item.quantityOrdered * item.unitCost * (parseFloat(exchangeRate) || 0)).toFixed(2)}
-                            </td>
-                            <td style={{ padding: '8px 12px', textAlign: 'center' }}>
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveItemFromPO(idx)}
-                                style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer' }}
-                              >
-                                <X size={15} />
-                              </button>
-                            </td>
-                          </tr>
-                        ))
+                        poItems.map((item, idx) => {
+                          const itemSubtotal = item.quantityOrdered * item.unitCost;
+                          const ivaAmt = itemSubtotal * ((item.iva || 0) / 100);
+                          let impIntAmt = 0;
+                          if (item.impuestoInternoTipo === 'fijo') {
+                            impIntAmt = (item.impuestoInterno || 0) * item.quantityOrdered;
+                          } else {
+                            impIntAmt = itemSubtotal * ((item.impuestoInterno || 0) / 100);
+                          }
+                          const totalTaxes = ivaAmt + impIntAmt;
+                          const totalLinea = itemSubtotal + totalTaxes;
+
+                          return (
+                            <tr key={idx} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                              <td style={{ padding: '8px 12px' }}>
+                                <div style={{ fontWeight: 600 }}>{item.name}</div>
+                                <div style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)' }}>{item.code}</div>
+                                <div style={{ fontSize: '0.65rem', color: 'var(--color-primary)' }}>
+                                  IVA {item.iva || 0}% | Imp.Int {item.impuestoInternoTipo === 'fijo' ? '$' : ''}{item.impuestoInterno || 0}{item.impuestoInternoTipo === 'porcentaje' ? '%' : ''}
+                                </div>
+                              </td>
+                              <td style={{ padding: '8px 12px', textAlign: 'center' }}>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={item.quantityOrdered}
+                                  onChange={(e) => {
+                                    const val = Math.max(1, parseInt(e.target.value) || 1);
+                                    const updated = [...poItems];
+                                    updated[idx].quantityOrdered = val;
+                                    setPoItems(updated);
+                                  }}
+                                  style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-light)', borderRadius: '4px', color: 'inherit', width: '60px', textAlign: 'center', padding: '4px' }}
+                                />
+                              </td>
+                              <td style={{ padding: '8px 12px', textAlign: 'right' }}>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  value={item.unitCost}
+                                  onChange={(e) => {
+                                    const val = Math.max(0, parseFloat(e.target.value) || 0);
+                                    const updated = [...poItems];
+                                    updated[idx].unitCost = val;
+                                    setPoItems(updated);
+                                  }}
+                                  style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-light)', borderRadius: '4px', color: 'inherit', width: '75px', textAlign: 'right', padding: '4px' }}
+                                />
+                              </td>
+                              <td style={{ padding: '8px 12px', textAlign: 'right', color: 'black', fontStyle: 'italic', fontWeight: 600 }}>
+                                ${((parseFloat(exchangeRate) || 0) * item.unitCost).toFixed(2)}
+                              </td>
+                              <td style={{ padding: '8px 12px', textAlign: 'right', color: 'var(--color-text-muted)' }}>
+                                ${totalTaxes.toFixed(2)}
+                              </td>
+                              <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 600 }}>
+                                ${totalLinea.toFixed(2)}
+                              </td>
+                              <td style={{ padding: '8px 12px', textAlign: 'right', color: 'black', fontStyle: 'italic', fontWeight: 600 }}>
+                                ${(totalLinea * (parseFloat(exchangeRate) || 0)).toFixed(2)}
+                              </td>
+                              <td style={{ padding: '8px 12px', textAlign: 'center' }}>
+                                <button type="button" onClick={() => handleRemoveItemFromPO(idx)} style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer' }}>
+                                  <X size={15} />
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })
                       )}
                     </tbody>
                   </table>
-                  {poItems.length > 0 && (
-                    <div style={{
-                      background: 'rgba(255,255,255,0.01)',
-                      padding: '12px 16px',
-                      display: 'flex',
-                      justifyContent: 'flex-end',
-                      alignItems: 'center',
-                      gap: '24px',
-                      borderTop: '1px solid var(--border-light)'
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Subtotal (USD):</span>
-                        <strong style={{ fontSize: '1.05rem', color: 'white' }}>
-                          ${poItems.reduce((sum, i) => sum + (i.quantityOrdered * i.unitCost), 0).toFixed(2)}
-                        </strong>
+                  {poItems.length > 0 && (() => {
+                    const totalNeto = poItems.reduce((sum, i) => sum + (i.quantityOrdered * i.unitCost), 0);
+                    const totalImpuestos = poItems.reduce((sum, i) => {
+                      const itemSubtotal = i.quantityOrdered * i.unitCost;
+                      const ivaAmt = itemSubtotal * ((i.iva || 0) / 100);
+                      let impIntAmt = 0;
+                      if (i.impuestoInternoTipo === 'fijo') {
+                        impIntAmt = (i.impuestoInterno || 0) * i.quantityOrdered;
+                      } else {
+                        impIntAmt = itemSubtotal * ((i.impuestoInterno || 0) / 100);
+                      }
+                      return sum + ivaAmt + impIntAmt;
+                    }, 0);
+                    const totalFinal = totalNeto + totalImpuestos;
+                    const exchange = parseFloat(exchangeRate) || 0;
+
+                    return (
+                      <div style={{ background: 'rgba(255,255,255,0.01)', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: '8px', borderTop: '1px solid var(--border-light)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '24px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>Neto (USD):</span>
+                            <span style={{ fontSize: '0.95rem', color: 'white' }}>${totalNeto.toFixed(2)}</span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>Impuestos (USD):</span>
+                            <span style={{ fontSize: '0.95rem', color: 'white' }}>${totalImpuestos.toFixed(2)}</span>
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '24px', alignItems: 'center', marginTop: '4px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '0.85rem', color: 'var(--color-primary)', textTransform: 'uppercase', fontWeight: 'bold' }}>TOTAL (USD):</span>
+                            <strong style={{ fontSize: '1.2rem', color: 'white' }}>${totalFinal.toFixed(2)}</strong>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>TOTAL (ARS):</span>
+                            <strong style={{ fontSize: '1.2rem', color: 'black', fontStyle: 'italic' }}>${(totalFinal * exchange).toFixed(2)}</strong>
+                          </div>
+                        </div>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Subtotal (ARS):</span>
-                        <strong style={{ fontSize: '1.1rem', color: 'black', fontStyle: 'italic' }}>
-                          ${(poItems.reduce((sum, i) => sum + (i.quantityOrdered * i.unitCost), 0) * (parseFloat(exchangeRate) || 0)).toFixed(2)}
-                        </strong>
-                      </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
               </div>
 

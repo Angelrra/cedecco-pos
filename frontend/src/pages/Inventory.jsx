@@ -33,6 +33,9 @@ const Inventory = () => {
   const [formError, setFormError] = useState('');
   const [suppliers, setSuppliers] = useState([]);
   const [formSupplier, setFormSupplier] = useState('');
+  const [formIva, setFormIva] = useState(21);
+  const [formImpuestoInterno, setFormImpuestoInterno] = useState(0);
+  const [formImpuestoInternoTipo, setFormImpuestoInternoTipo] = useState('porcentaje');
 
   // Estados para modal de Agregar Categoría
   const [customCategories, setCustomCategories] = useState([]);
@@ -556,6 +559,9 @@ const Inventory = () => {
     setFormMinStock('5');
     setFormExpirationDate('');
     setFormSupplier('');
+    setFormIva(21);
+    setFormImpuestoInterno(0);
+    setFormImpuestoInternoTipo('porcentaje');
     setFormError('');
     setShowFormModal(true);
   };
@@ -580,7 +586,7 @@ const Inventory = () => {
     }
 
     setFormStock(prod.stock !== undefined && prod.stock !== null ? prod.stock : '0');
-    setFormMinStock(prod.minStock !== undefined && prod.minStock !== null ? prod.minStock : '');
+    setFormMinStock(prod.minStock !== undefined && prod.minStock !== null ? prod.minStock : '5');
     
     // Formatear fecha para el input type="date"
     const dateStr = prod.expirationDate 
@@ -588,6 +594,9 @@ const Inventory = () => {
       : '';
     setFormExpirationDate(dateStr);
     setFormSupplier(prod.supplier?._id || prod.supplier || '');
+    setFormIva(prod.iva !== undefined && prod.iva !== null ? prod.iva : 21);
+    setFormImpuestoInterno(prod.impuestoInterno !== undefined && prod.impuestoInterno !== null ? prod.impuestoInterno : 0);
+    setFormImpuestoInternoTipo(prod.impuestoInternoTipo || 'porcentaje');
     
     setFormError('');
     setShowFormModal(true);
@@ -649,9 +658,13 @@ const Inventory = () => {
       category: formCategory || 'General',
       purchasePrice: parseFloat(formPurchasePrice) || 0,
       salePrice: parseFloat(formSalePrice) || 0,
+      stock: parseInt(formStock) || 0,
       minStock: (formMinStock !== '' && formMinStock !== undefined && formMinStock !== null) ? parseInt(formMinStock) : 0,
       expirationDate: formExpirationDate || null,
-      supplier: formSupplier || null
+      supplier: formSupplier || null,
+      iva: parseFloat(formIva) || 0,
+      impuestoInterno: parseFloat(formImpuestoInterno) || 0,
+      impuestoInternoTipo: formImpuestoInternoTipo
     };
 
     if (!editingProduct || formCode !== editingProduct.code) {
@@ -1125,6 +1138,48 @@ const Inventory = () => {
                     value={formSalePrice}
                     onChange={(e) => handleSalePriceChange(e.target.value)}
                   />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '15px' }}>
+                <div className="input-group">
+                  <label className="input-label">IVA (%)</label>
+                  <select
+                    className="form-input"
+                    value={formIva}
+                    onChange={(e) => setFormIva(e.target.value)}
+                    style={{ background: 'var(--bg-main)' }}
+                  >
+                    <option value="0">0%</option>
+                    <option value="10.5">10.5%</option>
+                    <option value="21">21%</option>
+                    <option value="27">27%</option>
+                  </select>
+                </div>
+
+                <div className="input-group" style={{ gridColumn: 'span 2' }}>
+                  <label className="input-label">Impuesto Interno</label>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      className="form-input"
+                      placeholder="0.00"
+                      value={formImpuestoInterno}
+                      onChange={(e) => setFormImpuestoInterno(e.target.value)}
+                      style={{ flex: 2 }}
+                    />
+                    <select
+                      className="form-input"
+                      value={formImpuestoInternoTipo}
+                      onChange={(e) => setFormImpuestoInternoTipo(e.target.value)}
+                      style={{ background: 'var(--bg-main)', flex: 1 }}
+                    >
+                      <option value="porcentaje">% (Porcentaje)</option>
+                      <option value="fijo">$ (Monto Fijo)</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 

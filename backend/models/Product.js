@@ -63,6 +63,24 @@ const productSchema = new mongoose.Schema({
     ref: 'Supplier',
     default: null
   },
+  iva: {
+    type: Number,
+    required: false,
+    default: 21,
+    min: 0
+  },
+  impuestoInterno: {
+    type: Number,
+    required: false,
+    default: 0,
+    min: 0
+  },
+  impuestoInternoTipo: {
+    type: String,
+    required: false,
+    enum: ['porcentaje', 'fijo'],
+    default: 'porcentaje'
+  },
   // Precios personalizados por lista (override del markup global)
   // Cada entrada: { listIndex: 1-6, price: Number, useCustom: Boolean }
   customPrices: {

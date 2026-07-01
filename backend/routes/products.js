@@ -125,7 +125,7 @@ router.get('/:id', auth, async (req, res) => {
 // @desc    Crear un producto nuevo (o reactivar uno existente que fue dado de baja lógica)
 // @access  Privado (Admin)
 router.post('/', auth, async (req, res) => {
-  const { code, name, description, category, purchasePrice, salePrice, stock, minStock, expirationDate, supplier } = req.body;
+  const { code, name, description, category, purchasePrice, salePrice, stock, minStock, expirationDate, supplier, iva, impuestoInterno, impuestoInternoTipo } = req.body;
 
   try {
     // Validar si existe un producto con el mismo código
@@ -145,6 +145,11 @@ router.post('/', auth, async (req, res) => {
       existingProduct.minStock = (isNaN(minStock) || minStock === '' || minStock === undefined || minStock === null) ? 0 : Number(minStock);
       existingProduct.expirationDate = expirationDate || null;
       existingProduct.supplier = supplier || null;
+      
+      if (iva !== undefined) existingProduct.iva = (isNaN(iva) || iva === '' || iva === null) ? 21 : Number(iva);
+      if (impuestoInterno !== undefined) existingProduct.impuestoInterno = (isNaN(impuestoInterno) || impuestoInterno === '' || impuestoInterno === null) ? 0 : Number(impuestoInterno);
+      if (impuestoInternoTipo !== undefined) existingProduct.impuestoInternoTipo = impuestoInternoTipo;
+
       existingProduct.active = true;
 
       await existingProduct.save();
@@ -175,7 +180,10 @@ router.post('/', auth, async (req, res) => {
       stock: (isNaN(stock) || stock === '' || stock === undefined || stock === null) ? 0 : Number(stock),
       minStock: (isNaN(minStock) || minStock === '' || minStock === undefined || minStock === null) ? 0 : Number(minStock),
       expirationDate: expirationDate || null,
-      supplier: supplier || null
+      supplier: supplier || null,
+      iva: (isNaN(iva) || iva === '' || iva === undefined || iva === null) ? 21 : Number(iva),
+      impuestoInterno: (isNaN(impuestoInterno) || impuestoInterno === '' || impuestoInterno === undefined || impuestoInterno === null) ? 0 : Number(impuestoInterno),
+      impuestoInternoTipo: impuestoInternoTipo || 'porcentaje'
     });
 
     await newProduct.save();
@@ -203,7 +211,7 @@ router.post('/', auth, async (req, res) => {
 // @desc    Actualizar un producto existente
 // @access  Privado (Admin)
 router.put('/:id', auth, async (req, res) => {
-  const { code, name, description, category, purchasePrice, salePrice, minStock, expirationDate, supplier } = req.body;
+  const { code, name, description, category, purchasePrice, salePrice, minStock, expirationDate, supplier, iva, impuestoInterno, impuestoInternoTipo } = req.body;
 
   try {
     const product = await Product.findById(req.params.id);
@@ -249,6 +257,15 @@ router.put('/:id', auth, async (req, res) => {
     }
     if (supplier !== undefined) {
       product.supplier = supplier || null;
+    }
+    if (iva !== undefined) {
+      product.iva = (isNaN(iva) || iva === '' || iva === null) ? 21 : Number(iva);
+    }
+    if (impuestoInterno !== undefined) {
+      product.impuestoInterno = (isNaN(impuestoInterno) || impuestoInterno === '' || impuestoInterno === null) ? 0 : Number(impuestoInterno);
+    }
+    if (impuestoInternoTipo !== undefined) {
+      product.impuestoInternoTipo = impuestoInternoTipo;
     }
 
     await product.save();
