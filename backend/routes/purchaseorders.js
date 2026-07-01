@@ -42,7 +42,7 @@ router.get('/:id', auth, async (req, res) => {
 // POST /api/purchaseorders - Crear una nueva orden de compra
 router.post('/', auth, async (req, res) => {
   try {
-    const { supplier, items, notes, expectedDate } = req.body;
+    const { supplier, items, notes, expectedDate, exchangeRate } = req.body;
     if (!supplier) return res.status(400).json({ message: 'El proveedor es requerido' });
     if (!items || items.length === 0) return res.status(400).json({ message: 'Debe ingresar al menos un producto' });
 
@@ -66,6 +66,7 @@ router.post('/', auth, async (req, res) => {
       items: preparedItems,
       notes,
       expectedDate: expectedDate || null,
+      exchangeRate: exchangeRate ? parseFloat(exchangeRate) : null,
       createdBy: req.user._id,
       status: 'borrador'
     });
@@ -80,7 +81,7 @@ router.post('/', auth, async (req, res) => {
 // PUT /api/purchaseorders/:id - Actualizar orden de compra
 router.put('/:id', auth, async (req, res) => {
   try {
-    const { supplier, items, notes, expectedDate, status } = req.body;
+    const { supplier, items, notes, expectedDate, status, exchangeRate } = req.body;
     const order = await PurchaseOrder.findById(req.params.id);
     if (!order) return res.status(404).json({ message: 'Orden de compra no encontrada' });
 
@@ -92,6 +93,7 @@ router.put('/:id', auth, async (req, res) => {
     if (expectedDate !== undefined) order.expectedDate = expectedDate;
     if (status !== undefined) order.status = status;
     if (supplier !== undefined) order.supplier = supplier;
+    if (exchangeRate !== undefined) order.exchangeRate = exchangeRate ? parseFloat(exchangeRate) : null;
 
     if (items !== undefined) {
       const preparedItems = [];

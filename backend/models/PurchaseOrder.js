@@ -37,6 +37,10 @@ const purchaseOrderSchema = new mongoose.Schema({
     type: Date,
     default: null
   },
+  exchangeRate: {
+    type: Number,
+    default: null
+  },
   // Totales calculados
   subtotal: { type: Number, default: 0 },
   createdBy: {

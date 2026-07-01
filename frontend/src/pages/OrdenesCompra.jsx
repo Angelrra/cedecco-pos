@@ -22,6 +22,7 @@ const OrdenesCompra = () => {
   // Campos para Nueva/Editar Orden
   const [selectedSupplier, setSelectedSupplier] = useState('');
   const [expectedDate, setExpectedDate] = useState('');
+  const [exchangeRate, setExchangeRate] = useState('');
   const [notes, setNotes] = useState('');
   const [poItems, setPoItems] = useState([]); // Array de { product: id, name, code, quantityOrdered, unitCost }
 
@@ -104,6 +105,7 @@ const OrdenesCompra = () => {
       setEditingId(order._id);
       setSelectedSupplier(order.supplier?._id || '');
       setExpectedDate(order.expectedDate ? new Date(order.expectedDate).toISOString().substring(0, 10) : '');
+      setExchangeRate(order.exchangeRate || '');
       setNotes(order.notes || '');
       setPoItems(order.items.map(item => ({
         product: item.product?._id || item.product,
@@ -116,6 +118,7 @@ const OrdenesCompra = () => {
       setEditingId(null);
       setSelectedSupplier('');
       setExpectedDate('');
+      setExchangeRate('');
       setNotes('');
       setPoItems([]);
     }
@@ -185,6 +188,7 @@ const OrdenesCompra = () => {
       const payload = {
         supplier: selectedSupplier,
         expectedDate: expectedDate || null,
+        exchangeRate: exchangeRate ? parseFloat(exchangeRate) : null,
         notes,
         items: poItems
       };
@@ -590,6 +594,24 @@ const OrdenesCompra = () => {
                     style={{ width: '100%' }}
                   />
                 </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', marginBottom: '6px' }}>
+                    Cotización Dólar (Opcional)
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <DollarSign size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={exchangeRate}
+                      onChange={(e) => setExchangeRate(e.target.value)}
+                      className="form-input"
+                      placeholder="Ej: 1050"
+                      style={{ width: '100%', paddingLeft: '30px' }}
+                    />
+                  </div>
+                </div>
               </div>
 
               {/* Sección de agregar producto */}
@@ -948,6 +970,11 @@ const OrdenesCompra = () => {
                   {selectedOrder.receivedDate && (
                     <div style={{ fontSize: '0.8rem', marginTop: '4px', color: 'var(--color-success)' }}>
                       Recepción: <strong>{new Date(selectedOrder.receivedDate).toLocaleDateString('es-AR')}</strong>
+                    </div>
+                  )}
+                  {selectedOrder.exchangeRate && (
+                    <div style={{ fontSize: '0.8rem', marginTop: '4px' }}>
+                      Cotización Dólar: <strong>${selectedOrder.exchangeRate.toFixed(2)}</strong>
                     </div>
                   )}
                 </div>
