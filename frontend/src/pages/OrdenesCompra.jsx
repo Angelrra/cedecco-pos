@@ -598,18 +598,39 @@ const OrdenesCompra = () => {
                   <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', marginBottom: '6px' }}>
                     Cotización Dólar (Opcional)
                   </label>
-                  <div style={{ position: 'relative' }}>
-                    <DollarSign size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={exchangeRate}
-                      onChange={(e) => setExchangeRate(e.target.value)}
-                      className="form-input"
-                      placeholder="Ej: 1050"
-                      style={{ width: '100%', paddingLeft: '30px' }}
-                    />
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <div style={{ position: 'relative', flex: 1 }}>
+                      <DollarSign size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={exchangeRate}
+                        onChange={(e) => setExchangeRate(e.target.value)}
+                        className="form-input"
+                        placeholder="Ej: 1050"
+                        style={{ width: '100%', paddingLeft: '30px' }}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        try {
+                          const cached = localStorage.getItem('dolar-bna-cotizacion');
+                          if (cached) {
+                            const parsed = JSON.parse(cached);
+                            if (parsed.compra) setExchangeRate(parsed.compra);
+                          }
+                        } catch (e) {
+                          console.error('Error al leer cotización', e);
+                        }
+                      }}
+                      className="btn btn-secondary"
+                      style={{ padding: '0 12px', fontSize: '0.8rem', fontWeight: 'bold' }}
+                      title="Usar valor de compra actual del BNA"
+                    >
+                      Dolar
+                    </button>
                   </div>
                 </div>
               </div>
