@@ -27,14 +27,14 @@ const Inventory = () => {
   const [formPurchasePrice, setFormPurchasePrice] = useState('');
   const [formSalePrice, setFormSalePrice] = useState('');
   const [formMarkup, setFormMarkup] = useState('');
-  const [formStock, setFormStock] = useState('0');
-  const [formMinStock, setFormMinStock] = useState('5');
+  const [formStock, setFormStock] = useState('');
+  const [formMinStock, setFormMinStock] = useState('');
   const [formExpirationDate, setFormExpirationDate] = useState('');
   const [formError, setFormError] = useState('');
   const [suppliers, setSuppliers] = useState([]);
   const [formSupplier, setFormSupplier] = useState('');
   const [formIva, setFormIva] = useState(21);
-  const [formImpuestoInterno, setFormImpuestoInterno] = useState(0);
+  const [formImpuestoInterno, setFormImpuestoInterno] = useState('');
   const [formImpuestoInternoTipo, setFormImpuestoInternoTipo] = useState('porcentaje');
 
   // Estados para modal de Agregar Categoría
@@ -555,12 +555,12 @@ const Inventory = () => {
     setFormPurchasePrice('');
     setFormSalePrice('');
     setFormMarkup('');
-    setFormStock('0');
-    setFormMinStock('5');
+    setFormStock('');
+    setFormMinStock('');
     setFormExpirationDate('');
     setFormSupplier('');
     setFormIva(21);
-    setFormImpuestoInterno(0);
+    setFormImpuestoInterno('');
     setFormImpuestoInternoTipo('porcentaje');
     setFormError('');
     setShowFormModal(true);
@@ -585,8 +585,8 @@ const Inventory = () => {
       setFormMarkup('');
     }
 
-    setFormStock(prod.stock !== undefined && prod.stock !== null ? prod.stock : '0');
-    setFormMinStock(prod.minStock !== undefined && prod.minStock !== null ? prod.minStock : '5');
+    setFormStock(prod.stock !== undefined && prod.stock !== null ? prod.stock : '');
+    setFormMinStock(prod.minStock !== undefined && prod.minStock !== null ? prod.minStock : '');
     
     // Formatear fecha para el input type="date"
     const dateStr = prod.expirationDate 
@@ -595,7 +595,7 @@ const Inventory = () => {
     setFormExpirationDate(dateStr);
     setFormSupplier(prod.supplier?._id || prod.supplier || '');
     setFormIva(prod.iva !== undefined && prod.iva !== null ? prod.iva : 21);
-    setFormImpuestoInterno(prod.impuestoInterno !== undefined && prod.impuestoInterno !== null ? prod.impuestoInterno : 0);
+    setFormImpuestoInterno(prod.impuestoInterno !== undefined && prod.impuestoInterno !== null && prod.impuestoInterno !== 0 ? prod.impuestoInterno : '');
     setFormImpuestoInternoTipo(prod.impuestoInternoTipo || 'porcentaje');
     
     setFormError('');

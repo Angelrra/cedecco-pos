@@ -128,15 +128,15 @@ const OrdenesCompra = () => {
     setSearchProdQuery('');
     setProdSuggestions([]);
     setSelectedProductToAdd(null);
-    setAddQty(1);
-    setAddCost(0);
+    setAddQty('');
+    setAddCost('');
     setShowCreateModal(true);
   };
 
   const handleProductSelectToAdd = (prod) => {
     setSelectedProductToAdd(prod);
     setSearchProdQuery(`${prod.name} (${prod.code})`);
-    setAddCost(prod.purchasePrice || 0);
+    setAddCost(prod.purchasePrice !== undefined && prod.purchasePrice !== null && prod.purchasePrice !== 0 ? prod.purchasePrice : '');
     setProdSuggestions([]);
   };
 
@@ -168,8 +168,8 @@ const OrdenesCompra = () => {
 
     setSelectedProductToAdd(null);
     setSearchProdQuery('');
-    setAddQty(1);
-    setAddCost(0);
+    setAddQty('');
+    setAddCost('');
   };
 
   const handleRemoveItemFromPO = (idx) => {
@@ -715,7 +715,7 @@ const OrdenesCompra = () => {
                       className="form-input"
                       placeholder="Cant."
                       value={addQty}
-                      onChange={(e) => setAddQty(Math.max(1, parseInt(e.target.value) || 1))}
+                      onChange={(e) => setAddQty(e.target.value === '' ? '' : Math.max(1, parseInt(e.target.value) || 1))}
                       style={{ width: '100%', textAlign: 'center' }}
                       title="Cantidad Pedida"
                     />
@@ -731,7 +731,7 @@ const OrdenesCompra = () => {
                       className="form-input"
                       placeholder="Costo USD"
                       value={addCost}
-                      onChange={(e) => setAddCost(Math.max(0, parseFloat(e.target.value) || 0))}
+                      onChange={(e) => setAddCost(e.target.value === '' ? '' : Math.max(0, parseFloat(e.target.value) || 0))}
                       style={{ width: '100%', paddingLeft: '24px' }}
                       title="Costo Unitario"
                     />
@@ -824,7 +824,7 @@ const OrdenesCompra = () => {
                                   min="1"
                                   value={item.quantityOrdered}
                                   onChange={(e) => {
-                                    const val = Math.max(1, parseInt(e.target.value) || 1);
+                                    const val = e.target.value === '' ? '' : Math.max(1, parseInt(e.target.value) || 1);
                                     const updated = [...poItems];
                                     updated[idx].quantityOrdered = val;
                                     setPoItems(updated);
@@ -839,7 +839,7 @@ const OrdenesCompra = () => {
                                   min="0"
                                   value={item.unitCost}
                                   onChange={(e) => {
-                                    const val = Math.max(0, parseFloat(e.target.value) || 0);
+                                    const val = e.target.value === '' ? '' : Math.max(0, parseFloat(e.target.value) || 0);
                                     const updated = [...poItems];
                                     updated[idx].unitCost = val;
                                     setPoItems(updated);

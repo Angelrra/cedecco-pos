@@ -13,7 +13,7 @@ const POS = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [products, setProducts] = useState([]);
   const [cart, setCart] = useState([]);
-  const [discount, setDiscount] = useState(0);
+  const [discount, setDiscount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('efectivo');
   const [cashReceived, setCashReceived] = useState('');
   const [changeGiven, setChangeGiven] = useState(0);
@@ -856,7 +856,7 @@ const POS = () => {
 
       // Limpiar POS y modal
       setCart([]);
-      setDiscount(0);
+      setDiscount('');
       setCashReceived('');
       setChangeGiven(0);
       setSelectedCustomer(null);
@@ -943,7 +943,7 @@ const POS = () => {
 
       // Limpiar POS
       setCart([]);
-      setDiscount(0);
+      setDiscount('');
       setCashReceived('');
       setChangeGiven(0);
       setSelectedCustomer(null);
@@ -1507,7 +1507,7 @@ const POS = () => {
                   className="form-input"
                   placeholder="0.00"
                   value={discount}
-                  onChange={(e) => setDiscount(Math.max(0, parseFloat(e.target.value) || 0))}
+                  onChange={(e) => setDiscount(e.target.value === '' ? '' : Math.max(0, parseFloat(e.target.value) || 0))}
                   style={{ padding: '6px 10px', fontSize: '0.85rem' }}
                 />
               </div>
