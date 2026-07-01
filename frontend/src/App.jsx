@@ -749,6 +749,13 @@ const AppContent = () => {
 };
 
 function App() {
+  const envPin = import.meta.env.VITE_APP_PIN;
+  const [pinAuthorized, setPinAuthorized] = useState(() => {
+    return !envPin;
+  });
+  const [pinInput, setPinInput] = useState('');
+  const [pinError, setPinError] = useState(false);
+
   // Mecanismos de protección del frontend y bloqueo de inspección de código
   useEffect(() => {
     // 1. Bloquear menú contextual (clic derecho)
@@ -782,6 +789,53 @@ function App() {
       clearInterval(antiDebugInterval);
     };
   }, []);
+
+  const handlePinSubmit = (e) => {
+    e.preventDefault();
+    if (pinInput === envPin) {
+      setPinAuthorized(true);
+      setPinError(false);
+    } else {
+      setPinError(true);
+      setPinInput('');
+    }
+  };
+
+  if (!pinAuthorized) {
+    return (
+      <div style={{
+        display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', 
+        background: 'var(--bg-main)', fontFamily: 'var(--font-main)'
+      }}>
+        <div style={{
+          background: 'var(--bg-card)', padding: '40px', borderRadius: '12px',
+          boxShadow: 'var(--shadow-neon)', textAlign: 'center', border: '1px solid var(--border-light)'
+        }}>
+          <Lock size={48} style={{ color: 'var(--color-primary)', marginBottom: '20px', margin: '0 auto 20px auto', display: 'block' }} />
+          <h2 style={{ color: 'var(--color-text-main)', marginBottom: '20px' }}>Acceso Restringido</h2>
+          <form onSubmit={handlePinSubmit}>
+            <input
+              type="password"
+              placeholder="Ingrese el PIN"
+              value={pinInput}
+              onChange={(e) => setPinInput(e.target.value)}
+              style={{
+                padding: '10px 15px', borderRadius: '8px', border: '1px solid var(--border-light)',
+                background: 'var(--bg-main)', color: 'var(--color-text-main)', outline: 'none',
+                width: '100%', marginBottom: '15px', fontSize: '1.2rem', textAlign: 'center',
+                letterSpacing: '5px'
+              }}
+              autoFocus
+            />
+            {pinError && <p style={{ color: 'var(--color-danger)', fontSize: '0.85rem', marginTop: '-10px', marginBottom: '15px' }}>PIN incorrecto</p>}
+            <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '12px' }}>
+              Ingresar al Sistema
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <AuthProvider>
