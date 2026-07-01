@@ -723,12 +723,28 @@ const OrdenesCompra = () => {
                       step="0.01"
                       min="0"
                       className="form-input"
-                      placeholder="Costo"
+                      placeholder="Costo USD"
                       value={addCost}
                       onChange={(e) => setAddCost(Math.max(0, parseFloat(e.target.value) || 0))}
                       style={{ width: '100%', paddingLeft: '24px' }}
                       title="Costo Unitario"
                     />
+                  </div>
+
+                  {/* Costo en ARS (Vivo) */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    background: 'rgba(16, 185, 129, 0.1)',
+                    border: '1px solid rgba(16, 185, 129, 0.2)',
+                    color: '#10b981',
+                    padding: '0 12px',
+                    borderRadius: 'var(--radius-md)',
+                    fontWeight: 'bold',
+                    fontSize: '0.85rem',
+                    whiteSpace: 'nowrap'
+                  }} title="Costo Unitario en Pesos Argentinos (Costo USD * Cotización)">
+                    ARS ${(addCost * (parseFloat(exchangeRate) || 0)).toFixed(2)}
                   </div>
 
                   <button
@@ -757,16 +773,18 @@ const OrdenesCompra = () => {
                     <thead>
                       <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid var(--border-light)' }}>
                         <th style={{ padding: '8px 12px', textAlign: 'left' }}>Producto</th>
-                        <th style={{ padding: '8px 12px', textAlign: 'center', width: '100px' }}>Cant. Pedida</th>
-                        <th style={{ padding: '8px 12px', textAlign: 'right', width: '120px' }}>Costo Unitario</th>
-                        <th style={{ padding: '8px 12px', textAlign: 'right', width: '120px' }}>Subtotal</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'center', width: '90px' }}>Cant. Pedida</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'right', width: '110px' }}>Costo (USD)</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'right', width: '110px', color: '#10b981' }}>Costo (ARS)</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'right', width: '110px' }}>Subtotal (USD)</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'right', width: '110px', color: '#10b981' }}>Subtotal (ARS)</th>
                         <th style={{ padding: '8px 12px', textAlign: 'center', width: '50px' }}></th>
                       </tr>
                     </thead>
                     <tbody>
                       {poItems.length === 0 ? (
                         <tr>
-                          <td colSpan="5" style={{ textAlign: 'center', padding: '24px', color: 'var(--color-text-muted)' }}>
+                          <td colSpan="7" style={{ textAlign: 'center', padding: '24px', color: 'var(--color-text-muted)' }}>
                             No hay productos agregados a la orden.
                           </td>
                         </tr>
@@ -822,8 +840,14 @@ const OrdenesCompra = () => {
                                 }}
                               />
                             </td>
+                            <td style={{ padding: '8px 12px', textAlign: 'right', color: '#10b981', fontWeight: 600 }}>
+                              ${((parseFloat(exchangeRate) || 0) * item.unitCost).toFixed(2)}
+                            </td>
                             <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 600 }}>
                               ${(item.quantityOrdered * item.unitCost).toFixed(2)}
+                            </td>
+                            <td style={{ padding: '8px 12px', textAlign: 'right', color: '#10b981', fontWeight: 600 }}>
+                              ${(item.quantityOrdered * item.unitCost * (parseFloat(exchangeRate) || 0)).toFixed(2)}
                             </td>
                             <td style={{ padding: '8px 12px', textAlign: 'center' }}>
                               <button
@@ -846,13 +870,21 @@ const OrdenesCompra = () => {
                       display: 'flex',
                       justifyContent: 'flex-end',
                       alignItems: 'center',
-                      gap: '12px',
+                      gap: '24px',
                       borderTop: '1px solid var(--border-light)'
                     }}>
-                      <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Subtotal estimado:</span>
-                      <strong style={{ fontSize: '1.05rem', color: 'white' }}>
-                        ${poItems.reduce((sum, i) => sum + (i.quantityOrdered * i.unitCost), 0).toFixed(2)}
-                      </strong>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Subtotal (USD):</span>
+                        <strong style={{ fontSize: '1.05rem', color: 'white' }}>
+                          ${poItems.reduce((sum, i) => sum + (i.quantityOrdered * i.unitCost), 0).toFixed(2)}
+                        </strong>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Subtotal (ARS):</span>
+                        <strong style={{ fontSize: '1.1rem', color: '#10b981' }}>
+                          ${(poItems.reduce((sum, i) => sum + (i.quantityOrdered * i.unitCost), 0) * (parseFloat(exchangeRate) || 0)).toFixed(2)}
+                        </strong>
+                      </div>
                     </div>
                   )}
                 </div>
